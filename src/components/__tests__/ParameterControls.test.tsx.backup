@@ -1,0 +1,180 @@
+/**
+ * DatasetSelector.test.tsx — Unit tests for dataset selector
+ * 
+ * Tests dataset change triggers loadDataset and reset, and pause-before-change logic.
+ * Requirements: 7.2, 7.4
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { DatasetSelector } from '../DatasetSelector';
+
+describe('DatasetSelector', () => {
+    const mockOnDatasetChange = vi.fn();
+    const mockOnPause = vi.fn();
+
+    const defaultProps = {
+        currentDataset: 'iris-2d',
+        availableDatasets: ['iris-2d', 'blobs', 'linear'],
+        isPlaying: false,
+        onDatasetChange: mockOnDatasetChange,
+        onPause: mockOnPause,
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    // ---------------------------------------------------------------------------
+    // Rendering tests
+    // ---------------------------------------------------------------------------
+
+    it('renders dataset selector with all available datasets', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+        expect(selector).toBeInTheDocument();
+
+        // Check all options are present
+        const options = screen.getAllByRole('option');
+        expect(options).toHaveLength(3);
+    });
+
+    it('highlights currently active dataset', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+        expect(selector.value).toBe('iris-2d');
+    });
+
+    it('displays current dataset info', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        expect(screen.getByText(/Currently selected:/)).toBeInTheDocument();
+        expect(screen.getByText('Iris 2D')).toBeInTheDocument();
+    });
+
+    // ---------------------------------------------------------------------------
+    // Dataset change triggers loadDataset and reset (Requirement 7.2)
+    // ---------------------------------------------------------------------------
+
+    it('triggers onDatasetChange when a different dataset is selected', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'blobs' } });
+
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('blobs');
+        expect(mockOnDatasetChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not trigger onDatasetChange when the same dataset is selected', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'iris-2d' } });
+
+        expect(mockOnDatasetChange).not.toHaveBeenCalled();
+    });
+
+    it('triggers onDatasetChange for each available dataset', () => {
+        const { rerender } = render(<DatasetSelector {...defaultProps} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        // Change to blobs
+        fireEvent.change(selector, { target: { value: 'blobs' } });
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('blobs');
+
+        // Update props to reflect new dataset
+        rerender(<DatasetSelector {...defaultProps} currentDataset="blobs" />);
+        mockOnDatasetChange.mockClear();
+
+        // Change to linear
+        fireEvent.change(selector, { target: { value: 'linear' } });
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('linear');
+    });
+
+    // ---------------------------------------------------------------------------
+    // Pause-before-change logic (Requirement 7.4)
+    // ---------------------------------------------------------------------------
+
+    it('calls onPause when dataset changes during active training', () => {
+        render(<DatasetSelector {...defaultProps} isPlaying={true} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'blobs' } });
+
+        expect(mockOnPause).toHaveBeenCalled();
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('blobs');
+    });
+
+    it('does not call onPause when dataset changes while not playing', () => {
+        render(<DatasetSelector {...defaultProps} isPlaying={false} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'blobs' } });
+
+        expect(mockOnPause).not.toHaveBeenCalled();
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('blobs');
+    });
+
+    it('does not call onPause if onPause callback is not provided', () => {
+        const propsWithoutPause = {
+            ...defaultProps,
+            isPlaying: true,
+            onPause: undefined,
+        };
+
+        render(<DatasetSelector {...propsWithoutPause} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'blobs' } });
+
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('blobs');
+    });
+
+    it('pauses before changing dataset when playing', () => {
+        render(<DatasetSelector {...defaultProps} isPlaying={true} />);
+
+        const selector = screen.getByLabelText('Dataset') as HTMLSelectElement;
+
+        fireEvent.change(selector, { target: { value: 'linear' } });
+
+        // Verify pause is called before dataset change
+        expect(mockOnPause).toHaveBeenCalled();
+        expect(mockOnDatasetChange).toHaveBeenCalledWith('linear');
+
+        // Verify order: pause should be called first
+        const pauseCallOrder = mockOnPause.mock.invocationCallOrder[0];
+        const datasetChangeCallOrder = mockOnDatasetChange.mock.invocationCallOrder[0];
+        expect(pauseCallOrder).toBeLessThan(datasetChangeCallOrder);
+    });
+
+    // ---------------------------------------------------------------------------
+    // Display tests
+    // ---------------------------------------------------------------------------
+
+    it('displays descriptive names for all datasets', () => {
+        render(<DatasetSelector {...defaultProps} />);
+
+        expect(screen.getAllByText(/Iris 2D/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Blobs/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Linear/).length).toBeGreaterThan(0);
+    });
+
+    it('updates displayed current dataset when props change', () => {
+        const { rerender } = render(<DatasetSelector {...defaultProps} />);
+
+        expect(screen.getByText('Iris 2D')).toBeInTheDocument();
+
+        rerender(<DatasetSelector {...defaultProps} currentDataset="blobs" />);
+
+        expect(screen.getByText('Blobs')).toBeInTheDocument();
+    });
+});
