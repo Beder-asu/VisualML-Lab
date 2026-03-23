@@ -42,14 +42,14 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     key: 'lr',
                     label: 'Learning Rate',
                     min: 0.01,
-                    max: 2.50,
+                    max: 1.00,
                     step: 0.01,
                     format: (v) => v.toFixed(2),
                     getFeedback: (v) => {
                         if (v < 0.05) return { message: 'Learning rate is extremely low. The model will take a very long time to learn. Keep it here to observe underfitting.', type: 'warning' };
                         if (v <= 0.5) return { message: 'Safe learning rate. The model converges efficiently. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
-                        if (v <= 1.5) return { message: 'Aggressive learning rate. The model learns faster but might oscillate around the minimum. Watch the loss curve bounce.', type: 'info' };
-                        return { message: 'Dangerously high learning rate! The model will overshoot optimal weights and likely diverge completely.', type: 'error' };
+                        if (v <= 0.8) return { message: 'Aggressive learning rate. The model learns faster but might oscillate around the minimum. Watch the loss curve bounce.', type: 'info' };
+                        return { message: 'Very high learning rate! The model will overshoot optimal weights and may diverge.', type: 'error' };
                     }
                 },
                 {
@@ -71,14 +71,14 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     key: 'lr',
                     label: 'Learning Rate',
                     min: 0.01,
-                    max: 4.00,
+                    max: 1.00,
                     step: 0.01,
                     format: (v) => v.toFixed(2),
                     getFeedback: (v) => {
                         if (v < 0.1) return { message: 'Low learning rate. The decision boundary will move very slowly.', type: 'warning' };
-                        if (v <= 1.5) return { message: 'Optimal range for stable, visible convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
-                        if (v <= 3.0) return { message: 'Aggressive learning rate. The boundary might jump quickly between epochs.', type: 'info' };
-                        return { message: 'Dangerously high learning rate! The boundary may oscillate wildly without settling.', type: 'error' };
+                        if (v <= 0.5) return { message: 'Optimal range for stable, visible convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
+                        if (v <= 0.8) return { message: 'Aggressive learning rate. The boundary might jump quickly between epochs.', type: 'info' };
+                        return { message: 'Very high learning rate! The boundary may oscillate without settling properly.', type: 'error' };
                     }
                 },
                 {
