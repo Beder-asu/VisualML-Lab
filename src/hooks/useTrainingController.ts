@@ -98,13 +98,10 @@ export function useTrainingController(
                 const newEngineState = step(prevState.engineState, paramsRef.current);
 
                 // Add loss value to history (Requirements 4.2)
-                let newLossHistory = [...prevState.lossHistory, newEngineState.loss];
+                const newLossHistory = [...prevState.lossHistory, newEngineState.loss];
 
-                // Implement downsampling for histories > 100 points (Requirements 4.5)
-                if (newLossHistory.length > 100) {
-                    // Downsample by taking every other point
-                    newLossHistory = newLossHistory.filter((_, index) => index % 2 === 0);
-                }
+                // Note: We keep all history points. The LossCurve component will handle
+                // display optimization if needed (Requirements 4.5)
 
                 // Check for convergence (Requirements 1.5)
                 const converged = newEngineState.converged ||

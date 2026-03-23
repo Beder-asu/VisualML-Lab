@@ -33,12 +33,38 @@ const LossCurve: React.FC<LossCurveProps> = ({
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
+    // Smart downsampling for display: keep all data but only render a subset for performance
+    // This prevents the "jumping" issue by maintaining consistent iteration numbers
+    const displayData = useMemo(() => {
+        if (lossHistory.length <= 200) {
+            // Show all points if we have 200 or fewer
+            return lossHistory.map((loss, index) => ({ iteration: index + 1, loss }));
+        }
+
+        // For > 200 points, use smart sampling that preserves shape
+        // Always keep first, last, and evenly distributed points
+        const sampledData: Array<{ iteration: number; loss: number }> = [];
+        const step = Math.ceil(lossHistory.length / 200);
+
+        for (let i = 0; i < lossHistory.length; i += step) {
+            sampledData.push({ iteration: i + 1, loss: lossHistory[i] });
+        }
+
+        // Always include the last point
+        const lastIndex = lossHistory.length - 1;
+        if (sampledData[sampledData.length - 1].iteration !== lastIndex + 1) {
+            sampledData.push({ iteration: lastIndex + 1, loss: lossHistory[lastIndex] });
+        }
+
+        return sampledData;
+    }, [lossHistory]);
+
     // Create scales with auto-scaling y-axis based on loss range
     const { xScale, yScale } = useMemo(() => {
-        // X scale: iteration number
-        const maxIteration = Math.max(lossHistory.length - 1, 1);
+        // X scale: iteration number (1-indexed, not 0-indexed)
+        const maxIteration = Math.max(lossHistory.length, 1);
         const xScale = scaleLinear()
-            .domain([0, maxIteration])
+            .domain([1, maxIteration])
             .range([0, innerWidth]);
 
         // Y scale: loss value (auto-scale based on data range)
@@ -70,9 +96,9 @@ const LossCurve: React.FC<LossCurveProps> = ({
 
     // Create line generator
     const lineGenerator = useMemo(() => {
-        return line<number>()
-            .x((_, i) => xScale(i))
-            .y(d => yScale(d));
+        return line<{ iteration: number; loss: number }>()
+            .x(d => xScale(d.iteration))
+            .y(d => yScale(d.loss));
     }, [xScale, yScale]);
 
     // Render the loss curve
@@ -92,7 +118,7 @@ const LossCurve: React.FC<LossCurveProps> = ({
         // X-axis
         const xAxisTicks = Math.min(5, lossHistory.length);
         const xTickValues = Array.from({ length: xAxisTicks }, (_, i) =>
-            Math.floor((i * (lossHistory.length - 1)) / (xAxisTicks - 1))
+            Math.floor((i * (lossHistory.length - 1)) / (xAxisTicks - 1)) + 1 // +1 for 1-indexed iterations
         );
 
         g.append('g')
@@ -173,10 +199,10 @@ const LossCurve: React.FC<LossCurveProps> = ({
             .text('Loss');
 
         // Draw the loss curve line
-        const pathData = lineGenerator(lossHistory);
+        const pathData = lineGenerator(displayData);
         if (pathData) {
             g.append('path')
-                .datum(lossHistory)
+                .datum(displayData)
                 .attr('class', 'loss-line')
                 .attr('d', pathData)
                 .attr('fill', 'none')
@@ -184,18 +210,20 @@ const LossCurve: React.FC<LossCurveProps> = ({
                 .attr('stroke-width', 2);
         }
 
-        // Draw data points for better visibility
-        g.append('g')
-            .attr('class', 'loss-points')
-            .selectAll('circle')
-            .data(lossHistory)
-            .join('circle')
-            .attr('cx', (_, i) => xScale(i))
-            .attr('cy', d => yScale(d))
-            .attr('r', 2)
-            .attr('fill', '#4F46E5');
+        // Draw data points for better visibility (only if not too many)
+        if (displayData.length <= 100) {
+            g.append('g')
+                .attr('class', 'loss-points')
+                .selectAll('circle')
+                .data(displayData)
+                .join('circle')
+                .attr('cx', d => xScale(d.iteration))
+                .attr('cy', d => yScale(d.loss))
+                .attr('r', 2)
+                .attr('fill', '#4F46E5');
+        }
 
-    }, [lossHistory, xScale, yScale, lineGenerator, innerWidth, innerHeight]);
+    }, [lossHistory, displayData, xScale, yScale, lineGenerator, innerWidth, innerHeight]);
 
     // Generate accessible description for loss curve
     const getLossCurveDescription = useMemo(() => {
