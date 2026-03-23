@@ -57,16 +57,18 @@ export function VisualizationPanel({
             />
 
             {/* Playback controls */}
-            <PlaybackControls
-                engineState={engineState}
-                isPlaying={isPlaying}
-                isPaused={isPaused}
-                isConverged={isConverged}
-                onPlay={onPlay}
-                onPause={onPause}
-                onStep={onStep}
-                onReset={onReset}
-            />
+            <div id="playback-controls">
+                <PlaybackControls
+                    engineState={engineState}
+                    isPlaying={isPlaying}
+                    isPaused={isPaused}
+                    isConverged={isConverged}
+                    onPlay={onPlay}
+                    onPause={onPause}
+                    onStep={onStep}
+                    onReset={onReset}
+                />
+            </div>
 
             {/* Main visualization area with Canvas and Loss Curve side by side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

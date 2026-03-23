@@ -115,6 +115,7 @@ const LessonPage: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                     {/* Left panel: Concept explanation - Requirements 6.1 */}
                     <aside
+                        id="concept-panel"
                         className="lg:col-span-1"
                         aria-label="Lesson concept and explanation"
                     >
@@ -127,6 +128,7 @@ const LessonPage: React.FC = () => {
                         aria-label="Interactive visualization and controls"
                     >
                         {/* Parameter controls and dataset selector */}
+                        <div id="parameter-controls">
                             <ParameterControls
                                 algorithm={currentAlgorithm}
                                 params={params}
@@ -134,26 +136,30 @@ const LessonPage: React.FC = () => {
                                 onParamsChange={handleParamsChange}
                                 onPause={controls.pause}
                             />
+                        </div>
 
                         {/* Visualization panel with Canvas, Loss Curve, and Controls */}
-                        <VisualizationPanel
-                            engineState={trainingState.engineState}
-                            lossHistory={trainingState.lossHistory}
-                            isPlaying={trainingState.isPlaying}
-                            isPaused={trainingState.isPaused}
-                            isConverged={trainingState.isConverged}
-                            iteration={currentIteration}
-                            maxIterations={params.nIter}
-                            onPlay={controls.play}
-                            onPause={controls.pause}
-                            onStep={controls.step}
-                            onReset={controls.reset}
-                        />
+                        <div id="visualization-panel">
+                            <VisualizationPanel
+                                engineState={trainingState.engineState}
+                                lossHistory={trainingState.lossHistory}
+                                isPlaying={trainingState.isPlaying}
+                                isPaused={trainingState.isPaused}
+                                isConverged={trainingState.isConverged}
+                                iteration={currentIteration}
+                                maxIterations={params.nIter}
+                                onPlay={controls.play}
+                                onPause={controls.pause}
+                                onStep={controls.step}
+                                onReset={controls.reset}
+                            />
+                        </div>
                     </main>
                 </div>
 
                 {/* Bottom panel: Code panel - Requirements 6.1 */}
                 <section
+                    id="code-panel"
                     className="w-full"
                     aria-label="Algorithm source code"
                 >

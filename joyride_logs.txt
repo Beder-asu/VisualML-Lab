@@ -1,0 +1,25 @@
+PAGE LOG: ["[vite] connecting..."]
+PAGE LOG: ["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]
+PAGE LOG: ["[vite] connected."]
+PAGE LOG: ["tour %cinit%c 08:36:15.842","font-weight: bold","color: gray; font-weight: normal",{"action":"init","controlled":true,"index":0,"lifecycle":"init","origin":null,"positioned":false,"scrolling":false,"size":8,"status":"ready","waiting":false}]
+PAGE LOG: ["tour %cinit%c 08:36:16.216","font-weight: bold","color: gray; font-weight: normal",{"action":"init","controlled":true,"index":0,"lifecycle":"init","origin":null,"positioned":false,"scrolling":false,"size":8,"status":"ready","waiting":false}]
+Clicking How does it work
+PAGE LOG: ["step:0 %cscroll%c 08:36:16.603","font-weight: bold","color: gray; font-weight: normal","skipped"]
+PAGE LOG: ["step:0 %cpositioned%c 08:36:16.636","font-weight: bold","color: gray; font-weight: normal","beacon bottom"]
+PAGE LOG: ["tour %cstate%c 08:36:16.575","font-weight: bold","color: gray; font-weight: normal",{"action":{"from":"init","to":"start"},"status":{"from":"ready","to":"running"}}]
+PAGE LOG: ["step:0 %cstate%c 08:36:16.583","font-weight: bold","color: gray; font-weight: normal",{"action":{"from":"start","to":"update"},"lifecycle":{"from":"init","to":"ready"}}]
+PAGE LOG: ["step:0 %cstate%c 08:36:16.604","font-weight: bold","color: gray; font-weight: normal",{"lifecycle":{"from":"ready","to":"beacon_before"}}]
+PAGE LOG: ["step:0 %cstate%c 08:36:16.619","font-weight: bold","color: gray; font-weight: normal",{"lifecycle":{"from":"beacon_before","to":"beacon"}}]
+Waiting for Joyride to appear
+Waiting for beacon
+PAGE LOG: ["step:0 %cpositioned%c 08:36:19.814","font-weight: bold","color: gray; font-weight: normal","tooltip bottom"]
+PAGE LOG: ["step:0 %cscroll%c 08:36:19.831","font-weight: bold","color: gray; font-weight: normal","document","207 → 197"]
+PAGE LOG: ["step:0 %cstate%c 08:36:19.753","font-weight: bold","color: gray; font-weight: normal",{"lifecycle":{"from":"beacon","to":"tooltip_before"}}]
+PAGE LOG: ["step:0 %cstate%c 08:36:19.783","font-weight: bold","color: gray; font-weight: normal",{"scrolling":{"from":false,"to":true}}]
+Waiting for Next button
+Clicking Next button
+PAGE LOG: ["step:0 %cstate%c 08:36:20.061","font-weight: bold","color: gray; font-weight: normal",{"action":{"from":"update","to":"next"},"lifecycle":{"from":"tooltip_before","to":"complete"},"scrolling":{"from":true,"to":false}}]
+PAGE LOG: ["[vite]","hot updated: /src/index.css"]
+PAGE LOG: ["[vite]","hot updated: /src/index.css"]
+PAGE LOG: ["[vite]","hot updated: /src/index.css"]
+Final URL: http://localhost:5173/

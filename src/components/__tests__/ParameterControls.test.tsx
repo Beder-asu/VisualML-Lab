@@ -53,6 +53,22 @@ describe('ParameterControls', () => {
         expect(screen.getByText('100')).toBeInTheDocument();
     });
 
+    it('displays educational feedback dynamically based on parameter thresholds', () => {
+        render(<ParameterControls {...defaultProps} />);
+
+        // Initial lr=0.01 (<0.05) should show warning
+        expect(screen.getByText(/Learning rate is extremely low/i)).toBeInTheDocument();
+
+        // Change safely
+        const lrSlider = screen.getByLabelText('Learning Rate') as HTMLInputElement;
+        fireEvent.change(lrSlider, { target: { value: '0.1' } });
+        expect(screen.getByText(/Safe learning rate/i)).toBeInTheDocument();
+
+        // Change dangerously
+        fireEvent.change(lrSlider, { target: { value: '2.0' } });
+        expect(screen.getByText(/Dangerously high learning rate/i)).toBeInTheDocument();
+    });
+
     it('triggers param update when learning rate slider changes', async () => {
         render(<ParameterControls {...defaultProps} />);
 
