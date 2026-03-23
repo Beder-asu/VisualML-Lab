@@ -47,7 +47,7 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     format: (v) => v.toFixed(2),
                     getFeedback: (v) => {
                         if (v < 0.05) return { message: 'Learning rate is extremely low. The model will take a very long time to learn. Keep it here to observe underfitting.', type: 'warning' };
-                        if (v <= 0.5) return { message: 'Safe learning rate. The model converges efficiently. Tune within this range to find the sweetest spot.', type: 'success' };
+                        if (v <= 0.5) return { message: 'Safe learning rate. The model converges efficiently. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
                         if (v <= 1.5) return { message: 'Aggressive learning rate. The model learns faster but might oscillate around the minimum. Watch the loss curve bounce.', type: 'info' };
                         return { message: 'Dangerously high learning rate! The model will overshoot optimal weights and likely diverge completely.', type: 'error' };
                     }
@@ -60,7 +60,7 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     step: 10,
                     getFeedback: (v) => {
                         if (v < 50) return { message: 'Too few iterations. The model might stop before it properly learns the patterns.', type: 'warning' };
-                        if (v <= 200) return { message: 'Good balance of training time and convergence.', type: 'success' };
+                        if (v <= 200) return { message: 'Good balance of training time and convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
                         return { message: 'High iteration count allows for deep convergence, but might be unnecessary if the loss has already flattened out.', type: 'info' };
                     }
                 },
@@ -76,7 +76,7 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     format: (v) => v.toFixed(2),
                     getFeedback: (v) => {
                         if (v < 0.1) return { message: 'Low learning rate. The decision boundary will move very slowly.', type: 'warning' };
-                        if (v <= 1.5) return { message: 'Optimal range for stable, visible convergence.', type: 'success' };
+                        if (v <= 1.5) return { message: 'Optimal range for stable, visible convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
                         if (v <= 3.0) return { message: 'Aggressive learning rate. The boundary might jump quickly between epochs.', type: 'info' };
                         return { message: 'Dangerously high learning rate! The boundary may oscillate wildly without settling.', type: 'error' };
                     }
@@ -245,12 +245,11 @@ export function ParameterControls({
                             aria-valuetext={String(displayValue)}
                         />
                         {feedback && (
-                            <div className={`mt-2 p-2.5 text-xs rounded-md border-l-4 bg-gray-50 flex items-start gap-2 ${
-                                feedback.type === 'info' ? 'border-blue-500 text-blue-800' :
+                            <div className={`mt-2 p-2.5 text-xs rounded-md border-l-4 bg-gray-50 flex items-start gap-2 ${feedback.type === 'info' ? 'border-blue-500 text-blue-800' :
                                 feedback.type === 'success' ? 'border-green-500 text-green-800' :
-                                feedback.type === 'warning' ? 'border-yellow-500 text-yellow-800' :
-                                'border-red-500 text-red-800'
-                            }`}>
+                                    feedback.type === 'warning' ? 'border-yellow-500 text-yellow-800' :
+                                        'border-red-500 text-red-800'
+                                }`}>
                                 <span className="mt-0.5 text-sm">
                                     {feedback.type === 'info' && '💡'}
                                     {feedback.type === 'success' && '✅'}
