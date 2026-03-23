@@ -1,4 +1,4 @@
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
@@ -6,3 +6,10 @@ import '@testing-library/jest-dom'
 afterEach(() => {
     cleanup()
 })
+
+// Mock react-syntax-highlighter to prevent it from hanging jsdom tests
+vi.mock('react-syntax-highlighter', () => ({
+    Light: ({ children }: any) => children,
+    Prism: ({ children }: any) => children,
+    default: ({ children }: any) => children,
+}))

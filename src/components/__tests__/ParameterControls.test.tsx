@@ -49,7 +49,7 @@ describe('ParameterControls', () => {
     it('displays current parameter values', () => {
         render(<ParameterControls {...defaultProps} />);
 
-        expect(screen.getByText('0.010')).toBeInTheDocument();
+        expect(screen.getByText('0.01')).toBeInTheDocument();
         expect(screen.getByText('100')).toBeInTheDocument();
     });
 
@@ -116,7 +116,7 @@ describe('ParameterControls', () => {
 
         fireEvent.change(lrSlider, { target: { value: '0.05' } });
 
-        expect(screen.getByText('0.050')).toBeInTheDocument();
+        expect(screen.getByText('0.05')).toBeInTheDocument();
         expect(mockOnParamsChange).not.toHaveBeenCalled();
     });
 

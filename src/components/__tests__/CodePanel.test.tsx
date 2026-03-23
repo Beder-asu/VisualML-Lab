@@ -230,7 +230,7 @@ describe('CodePanel', () => {
             );
 
             // Check that code content is rendered (syntax highlighter renders the code)
-            expect(screen.getByText(/stepLinearRegression/i)).toBeInTheDocument();
+            expect(screen.getByText(/class LinearRegression/i)).toBeInTheDocument();
         });
 
         it('should display code for logistic regression', () => {
@@ -244,7 +244,7 @@ describe('CodePanel', () => {
                 />
             );
 
-            expect(screen.getByText(/stepLogisticRegression/i)).toBeInTheDocument();
+            expect(screen.getByText(/class LogisticRegression/i)).toBeInTheDocument();
         });
 
         it('should display code for SVM', () => {
@@ -258,7 +258,7 @@ describe('CodePanel', () => {
                 />
             );
 
-            expect(screen.getByText(/stepSVM/i)).toBeInTheDocument();
+            expect(screen.getByText(/class SVM/i)).toBeInTheDocument();
         });
 
         it('should display Python code when Python tab is selected', () => {
@@ -277,7 +277,7 @@ describe('CodePanel', () => {
             fireEvent.click(pythonButton);
 
             // Check for Python-specific syntax
-            expect(screen.getByText(/step_linear_regression/i)).toBeInTheDocument();
+            expect(screen.getByText(/def __init__\(self/i)).toBeInTheDocument();
         });
     });
 });

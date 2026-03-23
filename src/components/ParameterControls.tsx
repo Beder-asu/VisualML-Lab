@@ -34,37 +34,71 @@ interface SliderConfig {
  * Get slider configurations based on algorithm
  */
 function getSliderConfigs(algorithm: string): SliderConfig[] {
-    const baseConfigs: SliderConfig[] = [
-        {
-            key: 'lr',
-            label: 'Learning Rate',
-            min: 0.001,
-            max: 1.0,
-            step: 0.001,
-            format: (v) => v.toFixed(3),
-        },
-        {
-            key: 'nIter',
-            label: 'Max Iterations',
-            min: 10,
-            max: 1000,
-            step: 10,
-        },
-    ];
-
-    // Add SVM-specific parameter
-    if (algorithm === 'svm') {
-        baseConfigs.push({
-            key: 'C',
-            label: 'C (Regularization)',
-            min: 0.01,
-            max: 10.0,
-            step: 0.01,
-            format: (v) => v.toFixed(2),
-        });
+    switch (algorithm) {
+        case 'linearRegression':
+            return [
+                {
+                    key: 'lr',
+                    label: 'Learning Rate',
+                    min: 0.01,
+                    max: 2.50,
+                    step: 0.01,
+                    format: (v) => v.toFixed(2),
+                },
+                {
+                    key: 'nIter',
+                    label: 'Max Iterations',
+                    min: 10,
+                    max: 500,
+                    step: 10,
+                },
+            ];
+        case 'logisticRegression':
+            return [
+                {
+                    key: 'lr',
+                    label: 'Learning Rate',
+                    min: 0.01,
+                    max: 4.00,
+                    step: 0.01,
+                    format: (v) => v.toFixed(2),
+                },
+                {
+                    key: 'nIter',
+                    label: 'Max Iterations',
+                    min: 10,
+                    max: 2000,
+                    step: 50,
+                },
+            ];
+        case 'svm':
+        default:
+            return [
+                {
+                    key: 'lr',
+                    label: 'Learning Rate',
+                    min: 0.001,
+                    max: 0.500,
+                    step: 0.001,
+                    format: (v) => v.toFixed(3),
+                },
+                {
+                    key: 'nIter',
+                    label: 'Max Iterations',
+                    min: 10,
+                    max: 1000,
+                    step: 10,
+                },
+                {
+                    key: 'C',
+                    label: 'C (Regularization)',
+                    min: 0.01,
+                    max: 50.00,
+                    step: 0.01,
+                    format: (v) => v.toFixed(2),
+                },
+            ];
     }
-
-    return baseConfigs;
 }
 
 export function ParameterControls({
