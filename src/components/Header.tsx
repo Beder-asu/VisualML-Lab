@@ -6,6 +6,7 @@ export function Header() {
     
     const links = [
         { path: '/', label: 'Home' },
+        { path: '/eda-cheatsheet', label: 'EDA Cheat Sheet' },
         { path: '/lesson/linearRegression', label: 'Linear Regression' },
         { path: '/lesson/logisticRegression', label: 'Logistic Regression' },
         { path: '/lesson/svm', label: 'SVM' },

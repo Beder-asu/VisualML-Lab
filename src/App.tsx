@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import LessonPage from './pages/LessonPage'
+import DataVizCheatSheetPage from './pages/DataVizCheatSheetPage'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { ScrollToTop } from './components/ScrollToTop'
@@ -17,6 +18,7 @@ const App: React.FC = () => {
                     <main className="flex-1 w-full relative z-0">
                         <Routes>
                             <Route path="/" element={<HomePage />} />
+                            <Route path="/eda-cheatsheet" element={<DataVizCheatSheetPage />} />
                             <Route path="/lesson/:algorithm" element={<LessonPage />} />
                         </Routes>
                     </main>
