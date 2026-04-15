@@ -1,10 +1,8 @@
-import React from 'react';
-
 // Common viewBox and sizing
 const SVG_WRAPPER = "w-full h-full";
 
 export const getChartSvg = (id: string) => {
-    switch(id) {
+    switch (id) {
         case 'bar-chart':
             return (
                 <svg viewBox="0 0 100 100" className={SVG_WRAPPER} fill="none">
@@ -110,12 +108,12 @@ export const getChartSvg = (id: string) => {
                 <svg viewBox="0 0 100 100" className={SVG_WRAPPER} fill="none">
                     {/* Matrix Grid Lines */}
                     <path d="M5 5 h90 v90 h-90 z M35 5 v90 M65 5 v90 M5 35 h90 M5 65 h90" stroke="#e2e8f0" strokeWidth="1" />
-                    
+
                     {/* Diagonal Distributions */}
                     <path d="M5 35 Q20 5 35 35 Z" fill="#6366f1" opacity="0.5" />
                     <path d="M35 65 Q50 35 65 65 Z" fill="#10b981" opacity="0.5" />
                     <path d="M65 95 Q80 65 95 95 Z" fill="#f43f5e" opacity="0.5" />
-                    
+
                     {/* Scatter 1 */}
                     <circle cx="50" cy="20" r="1.5" fill="#475569" /><circle cx="55" cy="25" r="1.5" fill="#475569" /><circle cx="45" cy="15" r="1.5" fill="#475569" />
                     {/* Scatter 2 */}
