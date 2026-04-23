@@ -27,10 +27,12 @@ function getDecisionBoundary(state, gridSize = 100) {
     // Req 4.4: zero weights → horizontal line at y = 0.5
     const allZero = weights.every(w => w === 0);
     if (allZero) {
-        return Array.from({ length: gridSize }, (_, i) => ({
-            x: i / (gridSize - 1),
-            y: 0.5,
-        }));
+        return {
+            boundary: Array.from({ length: gridSize }, (_, i) => ({
+                x: i / (gridSize - 1),
+                y: 0.5,
+            })),
+        };
     }
 
     const points = [];

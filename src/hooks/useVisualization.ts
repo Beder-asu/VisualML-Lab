@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-// @ts-ignore - engine is JavaScript module without type definitions
-import * as boundaryModule from '../../engine/boundary';
-
-const { getDecisionBoundary } = boundaryModule;
+import type { State, BoundaryResult } from '../types/engine';
+import { getDecisionBoundary } from '../../engine/boundary';
 
 export interface BoundaryPoint {
     x: number;
@@ -19,19 +17,24 @@ export interface UseVisualizationResult {
 /**
  * Custom hook for managing decision boundary and margin visualization with smooth transitions
  */
-export function useVisualization(state: any): UseVisualizationResult {
+export function useVisualization(state: State | null): UseVisualizationResult {
     const [boundaryPoints, setBoundaryPoints] = useState<BoundaryPoint[]>([]);
     const [marginPosPoints, setMarginPosPoints] = useState<BoundaryPoint[]>([]);
     const [marginNegPoints, setMarginNegPoints] = useState<BoundaryPoint[]>([]);
-    
+
     const [isAnimating, setIsAnimating] = useState(false);
     const animationFrameRef = useRef<number | undefined>(undefined);
-    
+
     const prevBoundaryRef = useRef<BoundaryPoint[]>([]);
     const prevMarginPosRef = useRef<BoundaryPoint[]>([]);
     const prevMarginNegRef = useRef<BoundaryPoint[]>([]);
 
+    const prevWeightsRef = useRef<number[] | null>(null);
+    const prevBiasRef = useRef<number | null>(null);
+
     useEffect(() => {
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
         if (!state) {
             setBoundaryPoints([]);
             setMarginPosPoints([]);
@@ -39,14 +42,31 @@ export function useVisualization(state: any): UseVisualizationResult {
             return;
         }
 
+        // Skip recompute if weights and bias haven't changed (shallow comparison)
+        const currentWeights = state.weights;
+        const currentBias = state.bias;
+        const weightsUnchanged =
+            prevWeightsRef.current !== null &&
+            Array.isArray(currentWeights) &&
+            currentWeights.length === prevWeightsRef.current.length &&
+            currentWeights.every((w, i) => w === prevWeightsRef.current![i]);
+        const biasUnchanged = prevBiasRef.current !== null && currentBias === prevBiasRef.current;
+
+        if (weightsUnchanged && biasUnchanged) {
+            return;
+        }
+
         try {
             // Get new boundary points from ML Engine
-            const result = getDecisionBoundary(state, 100);
-            
-            // Handle backwards compatibility for pure arrays or object returns
-            const newBoundary = Array.isArray(result) ? result : (result?.boundary || []);
+            const result: BoundaryResult = getDecisionBoundary(state, 100);
+
+            const newBoundary = result?.boundary || [];
             const newMarginPos = result?.marginPos || [];
             const newMarginNeg = result?.marginNeg || [];
+
+            // Update memoization refs before animating
+            prevWeightsRef.current = Array.isArray(currentWeights) ? [...currentWeights] : null;
+            prevBiasRef.current = currentBias ?? null;
 
             animateTransitions(newBoundary, newMarginPos, newMarginNeg);
         } catch (error) {
@@ -91,7 +111,7 @@ export function useVisualization(state: any): UseVisualizationResult {
         const animate = (currentTime: number) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            
+
             // Ease-out cubic for smooth deceleration
             const eased = 1 - Math.pow(1 - progress, 3);
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LineChart, Target, Zap, PlayCircle, Sliders, Activity, Check, HelpCircle } from 'lucide-react'
+import { LineChart, Target, Zap, PlayCircle, Sliders, Activity, Check, HelpCircle, GitBranch } from 'lucide-react'
 import { NetworkBackground } from '../components/NetworkBackground'
 import { useTutorial } from '../contexts/TutorialContext'
 
@@ -33,6 +33,13 @@ const algorithms: AlgorithmCard[] = [
         description: 'See how SVM finds the optimal decision boundary that maximizes the margin between classes.',
         category: 'classification',
         icon: <Zap className="w-8 h-8 text-amber-500" />
+    },
+    {
+        id: 'decisionTree',
+        name: 'Decision Tree',
+        description: 'Watch a decision tree grow level-by-level and see how it partitions the feature space into rectangular regions.',
+        category: 'classification',
+        icon: <GitBranch className="w-8 h-8 text-purple-500" />
     }
 ]
 
@@ -175,7 +182,7 @@ const HomePage: React.FC = () => {
                         Choose an Algorithm to Explore
                     </h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-20">
                         {algorithms.map((algo) => (
                             <Link
                                 key={algo.id}
@@ -201,7 +208,9 @@ const HomePage: React.FC = () => {
 
                                     <div className="flex flex-col items-start mb-6">
                                         <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${algo.category === 'regression' ? 'bg-indigo-50' :
-                                                algo.id === 'svm' ? 'bg-amber-50' : 'bg-emerald-50'
+                                            algo.id === 'svm' ? 'bg-amber-50' :
+                                                algo.id === 'decisionTree' ? 'bg-purple-50' :
+                                                    'bg-emerald-50'
                                             }`}>
                                             {algo.icon}
                                         </div>

@@ -21,6 +21,32 @@ interface ParameterControlsProps {
     onPause?: () => void;
 }
 
+type FeedbackType = 'info' | 'warning' | 'success' | 'error';
+
+interface Feedback {
+    message: string;
+    type: FeedbackType;
+}
+
+type FeedbackTier = {
+    max: number;
+    message: string;
+    type: FeedbackType;
+};
+
+/**
+ * Returns the first tier where value <= max, falling back to the last tier.
+ */
+function getFeedbackForValue(tiers: FeedbackTier[], value: number): Feedback {
+    for (const tier of tiers) {
+        if (value <= tier.max) {
+            return { message: tier.message, type: tier.type };
+        }
+    }
+    const last = tiers[tiers.length - 1];
+    return { message: last.message, type: last.type };
+}
+
 interface SliderConfig {
     key: keyof Params;
     label: string;
@@ -28,7 +54,7 @@ interface SliderConfig {
     max: number;
     step: number;
     format?: (value: number) => string;
-    getFeedback?: (value: number) => { message: string, type: 'info' | 'warning' | 'success' | 'error' };
+    feedbackTiers?: FeedbackTier[];
 }
 
 /**
@@ -45,12 +71,12 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     max: 1.00,
                     step: 0.01,
                     format: (v) => v.toFixed(2),
-                    getFeedback: (v) => {
-                        if (v < 0.05) return { message: 'Learning rate is extremely low. The model will take a very long time to learn. Keep it here to observe underfitting.', type: 'warning' };
-                        if (v <= 0.5) return { message: 'Safe learning rate. The model converges efficiently. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
-                        if (v <= 0.8) return { message: 'Aggressive learning rate. The model learns faster but might oscillate around the minimum. Watch the loss curve bounce.', type: 'info' };
-                        return { message: 'Very high learning rate! The model will overshoot optimal weights and may diverge.', type: 'error' };
-                    }
+                    feedbackTiers: [
+                        { max: 0.049, message: 'Learning rate is extremely low. The model will take a very long time to learn. Keep it here to observe underfitting.', type: 'warning' },
+                        { max: 0.5, message: 'Safe learning rate. The model converges efficiently. Tune within this range to find the sweetest and most effective spot.', type: 'success' },
+                        { max: 0.8, message: 'Aggressive learning rate. The model learns faster but might oscillate around the minimum. Watch the loss curve bounce.', type: 'info' },
+                        { max: Infinity, message: 'Dangerously high learning rate! The model will overshoot optimal weights and may diverge.', type: 'error' },
+                    ],
                 },
                 {
                     key: 'nIter',
@@ -58,11 +84,11 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     min: 10,
                     max: 500,
                     step: 10,
-                    getFeedback: (v) => {
-                        if (v < 50) return { message: 'Too few iterations. The model might stop before it properly learns the patterns.', type: 'warning' };
-                        if (v <= 200) return { message: 'Good balance of training time and convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
-                        return { message: 'High iteration count allows for deep convergence, but might be unnecessary if the loss has already flattened out.', type: 'info' };
-                    }
+                    feedbackTiers: [
+                        { max: 49, message: 'Too few iterations. The model might stop before it properly learns the patterns.', type: 'warning' },
+                        { max: 200, message: 'Good balance of training time and convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' },
+                        { max: Infinity, message: 'High iteration count allows for deep convergence, but might be unnecessary if the loss has already flattened out.', type: 'info' },
+                    ],
                 },
             ];
         case 'logisticRegression':
@@ -74,12 +100,12 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     max: 1.00,
                     step: 0.01,
                     format: (v) => v.toFixed(2),
-                    getFeedback: (v) => {
-                        if (v < 0.1) return { message: 'Low learning rate. The decision boundary will move very slowly.', type: 'warning' };
-                        if (v <= 0.5) return { message: 'Optimal range for stable, visible convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' };
-                        if (v <= 0.8) return { message: 'Aggressive learning rate. The boundary might jump quickly between epochs.', type: 'info' };
-                        return { message: 'Very high learning rate! The boundary may oscillate without settling properly.', type: 'error' };
-                    }
+                    feedbackTiers: [
+                        { max: 0.099, message: 'Low learning rate. The decision boundary will move very slowly.', type: 'warning' },
+                        { max: 0.5, message: 'Optimal range for stable, visible convergence. Tune within this range to find the sweetest and most effective spot.', type: 'success' },
+                        { max: 0.8, message: 'Aggressive learning rate. The boundary might jump quickly between epochs.', type: 'info' },
+                        { max: Infinity, message: 'Very high learning rate! The boundary may oscillate without settling properly.', type: 'error' },
+                    ],
                 },
                 {
                     key: 'nIter',
@@ -87,11 +113,11 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     min: 10,
                     max: 2000,
                     step: 50,
-                    getFeedback: (v) => {
-                        if (v < 200) return { message: 'Logistic regression often requires more steps to separate classes. Consider increasing.', type: 'warning' };
-                        if (v <= 1000) return { message: 'Optimal range for observing the sigmoid boundary taking shape.', type: 'success' };
-                        return { message: 'High iterations ensure a very sharp boundary if the classes are linearly separable.', type: 'info' };
-                    }
+                    feedbackTiers: [
+                        { max: 199, message: 'Logistic regression often requires more steps to separate classes. Consider increasing.', type: 'warning' },
+                        { max: 1000, message: 'Optimal range for observing the sigmoid boundary taking shape.', type: 'success' },
+                        { max: Infinity, message: 'High iterations ensure a very sharp boundary if the classes are linearly separable.', type: 'info' },
+                    ],
                 },
             ];
         case 'svm':
@@ -104,11 +130,11 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     max: 0.500,
                     step: 0.001,
                     format: (v) => v.toFixed(3),
-                    getFeedback: (v) => {
-                        if (v < 0.005) return { message: 'Very precise but slow updates to the support vectors.', type: 'warning' };
-                        if (v <= 0.05) return { message: 'Optimal learning rate for standard convergence.', type: 'success' };
-                        return { message: 'Too high for SVM! The margins will oscillate rapidly and struggle to settle.', type: 'error' };
-                    }
+                    feedbackTiers: [
+                        { max: 0.00499, message: 'Very precise but slow updates to the support vectors.', type: 'warning' },
+                        { max: 0.05, message: 'Optimal learning rate for standard convergence.', type: 'success' },
+                        { max: Infinity, message: 'Too high for SVM! The margins will oscillate rapidly and struggle to settle.', type: 'error' },
+                    ],
                 },
                 {
                     key: 'nIter',
@@ -116,11 +142,11 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     min: 10,
                     max: 1000,
                     step: 10,
-                    getFeedback: (v) => {
-                        if (v < 200) return { message: 'Insufficient iterations to find the maximum margin.', type: 'warning' };
-                        if (v <= 500) return { message: 'Standard training length for separating simple blobs.', type: 'success' };
-                        return { message: 'Extended training ensures the margin is maximized perfectly.', type: 'info' };
-                    }
+                    feedbackTiers: [
+                        { max: 199, message: 'Insufficient iterations to find the maximum margin.', type: 'warning' },
+                        { max: 500, message: 'Standard training length for separating simple blobs.', type: 'success' },
+                        { max: Infinity, message: 'Extended training ensures the margin is maximized perfectly.', type: 'info' },
+                    ],
                 },
                 {
                     key: 'C',
@@ -129,11 +155,11 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     max: 50.00,
                     step: 0.01,
                     format: (v) => v.toFixed(2),
-                    getFeedback: (v) => {
-                        if (v < 1.0) return { message: 'Low C (Soft Margin). The model tolerates misclassifications to keep a wide, generalized margin.', type: 'info' };
-                        if (v <= 10.0) return { message: 'Balanced regularization. Aims for a solid margin with few misclassifications.', type: 'success' };
-                        return { message: 'High C (Hard Margin). The model strictly penalizes misclassifications, leading to a narrower margin that might overfit outliers.', type: 'warning' };
-                    }
+                    feedbackTiers: [
+                        { max: 0.999, message: 'Low C (Soft Margin). The model tolerates misclassifications to keep a wide, generalized margin.', type: 'info' },
+                        { max: 10.0, message: 'Balanced regularization. Aims for a solid margin with few misclassifications.', type: 'success' },
+                        { max: Infinity, message: 'High C (Hard Margin). The model strictly penalizes misclassifications, leading to a narrower margin that might overfit outliers.', type: 'warning' },
+                    ],
                 },
             ];
     }
@@ -208,7 +234,7 @@ export function ParameterControls({
             {sliderConfigs.map((config) => {
                 const value = localParams[config.key] as number;
                 const displayValue = config.format ? config.format(value) : value;
-                const feedback = config.getFeedback ? config.getFeedback(value) : null;
+                const feedback = config.feedbackTiers ? getFeedbackForValue(config.feedbackTiers, value) : null;
 
                 return (
                     <div key={config.key} className="space-y-2 pb-2">

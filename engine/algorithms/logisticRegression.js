@@ -34,13 +34,13 @@ function stepLogisticRegression(state, params) {
         return { ...state, converged: true };
     }
 
-    const { weights, bias, dataset } = state;
+    const { weights, bias, dataset, XAug } = state;
     const { X, y } = dataset;
     const { lr } = params;
     const m = X.length;
 
-    // Build combined weight vector [bias, ...weights] for prependOnes approach
-    const newX = prependOnes(X); // m × (n+1), first col is ones
+    // Use cached XAug if available (set by initState); recompute if missing or corrupted (e.g. after JSON round-trip)
+    const newX = (XAug?.[0] instanceof Float64Array) ? XAug : prependOnes(X); // m × (n+1), first col is ones
 
     // Combined weight vector: [bias, w0, w1, ...]
     const w = new Float64Array(weights.length + 1);

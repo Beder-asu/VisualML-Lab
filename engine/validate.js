@@ -11,8 +11,8 @@
 function validateParams(params, algorithm) {
     const { lr, nIter, C } = params;
 
-    // Requirements 6.1: lr must be > 0
-    if (typeof lr !== 'number' || lr <= 0) {
+    // Requirements 6.1: lr must be a finite positive number
+    if (!isFinite(lr) || lr <= 0) {
         throw new Error(`Learning rate must be a positive number, got: ${lr}`);
     }
 
@@ -28,7 +28,7 @@ function validateParams(params, algorithm) {
 
     // Requirements 6.4: C must be > 0 for SVM
     if (algorithm === 'svm') {
-        if (typeof C !== 'number' || C <= 0) {
+        if (!isFinite(C) || C <= 0) {
             throw new Error(`Regularization parameter C must be positive, got: ${C}`);
         }
     }

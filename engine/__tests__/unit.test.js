@@ -143,6 +143,28 @@ describe('validateParams — SVM C parameter', () => {
     });
 });
 
+describe('validateParams — NaN / Infinity (Req 6.1)', () => {
+    it('throws when lr is NaN', () => {
+        expect(() => validateParams({ lr: NaN, nIter: 100 }, 'linearRegression')).toThrow();
+    });
+
+    it('throws when lr is Infinity', () => {
+        expect(() => validateParams({ lr: Infinity, nIter: 100 }, 'linearRegression')).toThrow();
+    });
+
+    it('throws when lr is -Infinity', () => {
+        expect(() => validateParams({ lr: -Infinity, nIter: 100 }, 'linearRegression')).toThrow();
+    });
+
+    it('throws when nIter is NaN (fails Number.isInteger)', () => {
+        expect(() => validateParams({ lr: 0.1, nIter: NaN }, 'linearRegression')).toThrow();
+    });
+
+    it('throws when C is NaN for svm', () => {
+        expect(() => validateParams({ lr: 0.1, nIter: 100, C: NaN }, 'svm')).toThrow();
+    });
+});
+
 /**
  * Unit tests for engine/boundary.js
  * Requirements: 4.4
@@ -157,31 +179,31 @@ describe('getDecisionBoundary — zero weights edge case (Req 4.4)', () => {
         const dataset = loadDataset('blobs');
         const state = initState('logisticRegression', dataset, { lr: 0.1, nIter: 100 });
         // initState produces all-zero weights
-        const points = getDecisionBoundary(state);
-        expect(points.length).toBe(100);
-        points.forEach(pt => expect(pt.y).toBe(0.5));
+        const result = getDecisionBoundary(state);
+        expect(result.boundary.length).toBe(100);
+        result.boundary.forEach(pt => expect(pt.y).toBe(0.5));
     });
 
     it('returns a horizontal line at y=0.5 for svm with zero weights', () => {
         const dataset = loadDataset('blobs');
         const state = initState('svm', dataset, { lr: 0.001, nIter: 100, C: 1.0 });
-        const points = getDecisionBoundary(state);
-        expect(points.length).toBe(100);
-        points.forEach(pt => expect(pt.y).toBe(0.5));
+        const result = getDecisionBoundary(state);
+        expect(result.boundary.length).toBe(100);
+        result.boundary.forEach(pt => expect(pt.y).toBe(0.5));
     });
 
     it('returns a horizontal line at y=0.5 for linearRegression with zero weights', () => {
         const dataset = loadDataset('linear');
         const state = initState('linearRegression', dataset, { lr: 0.1, nIter: 100 });
-        const points = getDecisionBoundary(state);
-        expect(points.length).toBe(100);
-        points.forEach(pt => expect(pt.y).toBe(0.5));
+        const result = getDecisionBoundary(state);
+        expect(result.boundary.length).toBe(100);
+        result.boundary.forEach(pt => expect(pt.y).toBe(0.5));
     });
 
     it('respects custom gridSize', () => {
         const dataset = loadDataset('blobs');
         const state = initState('logisticRegression', dataset, { lr: 0.1, nIter: 100 });
-        const points = getDecisionBoundary(state, 50);
-        expect(points.length).toBe(50);
+        const result = getDecisionBoundary(state, 50);
+        expect(result.boundary.length).toBe(50);
     });
 });

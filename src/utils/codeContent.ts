@@ -257,6 +257,258 @@ export const algorithmCode: Record<string, AlgorithmCode> = {
     def predict(self, X):
         return (self.decision_function(X) >= 0).astype(int)          `,
     },
+    decisionTree: {
+        javascript: `class DecisionTree {
+    constructor(maxDepth = 5, criterion = 'gini', minSamplesSplit = 2) {
+        this.maxDepth = maxDepth;
+        this.criterion = criterion;
+        this.minSamplesSplit = minSamplesSplit;
+        this.root = null;
+    }
+
+    // Calculate Gini impurity for a set of labels
+    gini(labels) {
+        const counts = {};
+        for (const label of labels) {
+            counts[label] = (counts[label] || 0) + 1;
+        }
+        
+        let impurity = 1.0;
+        const total = labels.length;
+        for (const count of Object.values(counts)) {
+            const prob = count / total;
+            impurity -= prob * prob;
+        }
+        return impurity;
+    }
+
+    // Calculate entropy for a set of labels
+    entropy(labels) {
+        const counts = {};
+        for (const label of labels) {
+            counts[label] = (counts[label] || 0) + 1;
+        }
+        
+        let ent = 0.0;
+        const total = labels.length;
+        for (const count of Object.values(counts)) {
+            const prob = count / total;
+            if (prob > 0) {
+                ent -= prob * Math.log2(prob);
+            }
+        }
+        return ent;
+    }
+
+    // Find the best split for a node
+    findBestSplit(X, Y) {
+        const m = X.length;
+        const n = X[0].length;
+        let bestGain = -Infinity;
+        let bestFeature = null;
+        let bestThreshold = null;
+
+        const parentImpurity = this.criterion === 'gini' 
+            ? this.gini(Y) 
+            : this.entropy(Y);
+
+        // Try each feature
+        for (let feature = 0; feature < n; feature++) {
+            // Get unique values for this feature
+            const values = [...new Set(X.map(row => row[feature]))].sort((a, b) => a - b);
+            
+            // Try each threshold
+            for (let i = 0; i < values.length - 1; i++) {
+                const threshold = (values[i] + values[i + 1]) / 2;
+                
+                // Split data
+                const leftY = [];
+                const rightY = [];
+                for (let j = 0; j < m; j++) {
+                    if (X[j][feature] <= threshold) {
+                        leftY.push(Y[j]);
+                    } else {
+                        rightY.push(Y[j]);
+                    }
+                }
+                
+                if (leftY.length === 0 || rightY.length === 0) continue;
+                
+                // Calculate information gain
+                const leftImpurity = this.criterion === 'gini' 
+                    ? this.gini(leftY) 
+                    : this.entropy(leftY);
+                const rightImpurity = this.criterion === 'gini' 
+                    ? this.gini(rightY) 
+                    : this.entropy(rightY);
+                
+                const gain = parentImpurity 
+                    - (leftY.length / m) * leftImpurity 
+                    - (rightY.length / m) * rightImpurity;
+                
+                if (gain > bestGain) {
+                    bestGain = gain;
+                    bestFeature = feature;
+                    bestThreshold = threshold;
+                }
+            }
+        }
+        
+        return { feature: bestFeature, threshold: bestThreshold, gain: bestGain };
+    }
+
+    // Build tree recursively
+    buildTree(X, Y, depth = 0) {
+        const m = X.length;
+        const uniqueLabels = [...new Set(Y)];
+        
+        // Stopping conditions
+        if (depth >= this.maxDepth || 
+            uniqueLabels.length === 1 || 
+            m < this.minSamplesSplit) {
+            // Create leaf node with majority class
+            const counts = {};
+            for (const label of Y) {
+                counts[label] = (counts[label] || 0) + 1;
+            }
+            const prediction = Object.keys(counts).reduce((a, b) => 
+                counts[a] > counts[b] ? a : b
+            );
+            return {
+                isLeaf: true,
+                prediction: parseInt(prediction),
+                samples: m,
+                depth: depth
+            };
+        }
+        
+        // Find best split
+        const { feature, threshold, gain } = this.findBestSplit(X, Y);
+        
+        if (feature === null) {
+            // No valid split found, create leaf
+            const counts = {};
+            for (const label of Y) {
+                counts[label] = (counts[label] || 0) + 1;
+            }
+            const prediction = Object.keys(counts).reduce((a, b) => 
+                counts[a] > counts[b] ? a : b
+            );
+            return {
+                isLeaf: true,
+                prediction: parseInt(prediction),
+                samples: m,
+                depth: depth
+            };
+        }
+        
+        // Split data
+        const leftX = [], leftY = [];
+        const rightX = [], rightY = [];
+        for (let i = 0; i < m; i++) {
+            if (X[i][feature] <= threshold) {
+                leftX.push(X[i]);
+                leftY.push(Y[i]);
+            } else {
+                rightX.push(X[i]);
+                rightY.push(Y[i]);
+            }
+        }
+        
+        // Create internal node
+        return {
+            isLeaf: false,
+            feature: feature,
+            threshold: threshold,
+            samples: m,
+            depth: depth,
+            left: this.buildTree(leftX, leftY, depth + 1),
+            right: this.buildTree(rightX, rightY, depth + 1)
+        };
+    }
+
+    fit(X, Y) {
+        this.root = this.buildTree(X, Y);
+    }
+
+    predictOne(x, node = this.root) {
+        if (node.isLeaf) {
+            return node.prediction;
+        }
+        
+        if (x[node.feature] <= node.threshold) {
+            return this.predictOne(x, node.left);
+        } else {
+            return this.predictOne(x, node.right);
+        }
+    }
+
+    predict(X) {
+        return X.map(x => this.predictOne(x));
+    }
+}`,
+        python: `from sklearn.tree import DecisionTreeClassifier
+import numpy as np
+
+# Create and train a decision tree
+clf = DecisionTreeClassifier(
+    max_depth=5,           # Maximum tree depth
+    criterion='gini',      # Split criterion: 'gini' or 'entropy'
+    min_samples_split=2,   # Min samples to split a node
+    random_state=42
+)
+
+# Fit the model
+clf.fit(X_train, y_train)
+
+# Make predictions
+y_pred = clf.predict(X_test)
+
+# Get prediction probabilities
+y_proba = clf.predict_proba(X_test)
+
+# Access tree structure
+n_nodes = clf.tree_.node_count
+max_depth = clf.tree_.max_depth
+feature = clf.tree_.feature      # Feature used at each node
+threshold = clf.tree_.threshold  # Threshold used at each node
+children_left = clf.tree_.children_left
+children_right = clf.tree_.children_right
+
+# Example: Build tree step-by-step
+class StepwiseDecisionTree:
+    def __init__(self, max_depth=5, criterion='gini'):
+        self.max_depth = max_depth
+        self.criterion = criterion
+        self.current_depth = 0
+        self.tree = None
+    
+    def step(self, X, y):
+        """Build one level of the tree"""
+        if self.current_depth == 0:
+            # Initialize with root node
+            self.tree = DecisionTreeClassifier(
+                max_depth=1,
+                criterion=self.criterion
+            )
+            self.tree.fit(X, y)
+            self.current_depth = 1
+        elif self.current_depth < self.max_depth:
+            # Grow tree by one level
+            self.current_depth += 1
+            self.tree = DecisionTreeClassifier(
+                max_depth=self.current_depth,
+                criterion=self.criterion
+            )
+            self.tree.fit(X, y)
+        
+        return self.tree
+    
+    def predict(self, X):
+        if self.tree is None:
+            raise ValueError("Tree not initialized. Call step() first.")
+        return self.tree.predict(X)`,
+    },
 };
 
 /**

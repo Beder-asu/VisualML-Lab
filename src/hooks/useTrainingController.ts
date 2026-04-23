@@ -7,18 +7,15 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { TrainingState, TrainingControls } from '../types/ui';
+import type { State, Params } from '../types/engine';
+import type { StepResultMessage, ErrorMessage } from '../types/worker';
 
-// Import ML Engine functions (CommonJS module)
-// @ts-ignore - ML Engine is JavaScript
-import * as engine from '../../engine/index.js';
+// Import ML Engine functions (JavaScript module with type declarations in src/types/engine.d.ts)
+import { initState, loadDataset } from '../../engine/index.js';
+import { useEngineWorker } from './useEngineWorker';
 
-const { initState, step, loadDataset } = engine;
-
-interface Params {
-    lr: number;
-    nIter: number;
-    C?: number; // For SVM
-}
+const MAX_SAFE_ITERATIONS = 10_000;
+const LOSS_HISTORY_MAX = 200;
 
 /**
  * Custom hook for managing training playback and state
@@ -31,7 +28,8 @@ interface Params {
 export function useTrainingController(
     algorithm: string,
     initialDataset: string,
-    initialParams: Params
+    initialParams: Params,
+    speedMs: number = 200
 ): [TrainingState, TrainingControls] {
     // Training state
     const [state, setState] = useState<TrainingState>(() => {
@@ -58,79 +56,162 @@ export function useTrainingController(
         }
     });
 
-    // Refs for managing playback interval and last valid state
-    const intervalRef = useRef<number | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
+    // Refs for managing playback and last valid state
+    const isLoopRunningRef = useRef<boolean>(false);
     const paramsRef = useRef<Params>(initialParams);
-    const lastValidStateRef = useRef<TrainingState['engineState']>(state.engineState);
+    const speedMsRef = useRef<number>(speedMs);
+    const lastValidStateRef = useRef<State | null>(state.engineState);
+    // Mirror of engineState in a ref for synchronous access
+    const engineStateRef = useRef<State | null>(state.engineState);
+    // Mirror of isPlaying for synchronous access in callbacks (avoids stale closure)
+    const isPlayingRef = useRef<boolean>(state.isPlaying);
+    // Generation counter — incremented on reset/updateParams/changeDataset to invalidate in-flight worker responses
+    const generationRef = useRef<number>(0);
+    // Tracks whether a step request is in-flight to prevent concurrent requests
+    const pendingStepRef = useRef<boolean>(false);
+    // Flag for single-step mode — prevents self-scheduling after one result
+    const isSingleStepRef = useRef<boolean>(false);
+
+    // Web Worker hook
+    const { requestStep, setOnResult, setOnError } = useEngineWorker();
 
     // Update params ref when they change
     useEffect(() => {
         paramsRef.current = initialParams;
     }, [initialParams]);
 
+    // Keep speedMsRef in sync
+    useEffect(() => {
+        speedMsRef.current = speedMs;
+    }, [speedMs]);
+
+    // Keep isPlayingRef in sync with state.isPlaying
+    useEffect(() => {
+        isPlayingRef.current = state.isPlaying;
+    }, [state.isPlaying]);
+
     /**
-     * Clear any active intervals/animation frames
+     * Clear any active playback loop
      */
     const clearPlayback = useCallback(() => {
-        if (intervalRef.current !== null) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
-        if (animationFrameRef.current !== null) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-        }
+        isLoopRunningRef.current = false;
     }, []);
 
     /**
-     * Execute a single training step
-     * Requirements: 1.3, 12.1
+     * Post a step request to the worker.
+     * pendingStepRef guard only applies during continuous play — fast-forward
+     * and single-step bypass it so they are never silently dropped.
+     * Speed throttling is handled by the PlaybackControls interval, not here.
      */
-    const executeStep = useCallback(() => {
+    const sendStep = useCallback((options: { ignorePending?: boolean } = {}) => {
+        const currentEngineState = engineStateRef.current;
+        if (!currentEngineState) return;
+        if (pendingStepRef.current && !options.ignorePending) return;
+
+        pendingStepRef.current = true;
+        requestStep(currentEngineState, paramsRef.current, generationRef.current);
+    }, [requestStep]);
+
+    /**
+     * Handle a step result from the worker.
+     * Wired via setOnResult in a useEffect below.
+     */
+    const handleStepResult = useCallback((result: StepResultMessage) => {
+        // Discard stale responses from before a reset/param-change/dataset-change
+        if (result.generation !== generationRef.current) return;
+
+        pendingStepRef.current = false;
+
+        const newEngineState = result.state;
+
+        // Check hard iteration ceiling
+        if (newEngineState.iteration >= MAX_SAFE_ITERATIONS) {
+            isLoopRunningRef.current = false;
+            engineStateRef.current = newEngineState;
+            lastValidStateRef.current = newEngineState;
+            setState(prevState => ({
+                ...prevState,
+                engineState: newEngineState,
+                isPlaying: false,
+                error: 'Training exceeded maximum iterations (10,000). This may indicate a bug in the algorithm.',
+            }));
+            return;
+        }
+
+        // Check for convergence
+        const converged = newEngineState.converged ||
+            newEngineState.iteration >= paramsRef.current.nIter;
+
+        engineStateRef.current = newEngineState;
+        lastValidStateRef.current = newEngineState;
+
+        if (converged) {
+            isLoopRunningRef.current = false;
+        }
+
+        // Update React state with ring buffer for loss history
         setState(prevState => {
-            if (!prevState.engineState) {
-                return prevState;
+            let newLossHistory = [...prevState.lossHistory];
+            if (newEngineState.loss !== null) {
+                newLossHistory.push(newEngineState.loss);
+                if (newLossHistory.length > LOSS_HISTORY_MAX) {
+                    newLossHistory.shift();
+                }
             }
-
-            try {
-                // Call ML Engine step function
-                const newEngineState = step(prevState.engineState, paramsRef.current);
-
-                // Add loss value to history (Requirements 4.2)
-                const newLossHistory = [...prevState.lossHistory, newEngineState.loss];
-
-                // Note: We keep all history points. The LossCurve component will handle
-                // display optimization if needed (Requirements 4.5)
-
-                // Check for convergence (Requirements 1.5)
-                const converged = newEngineState.converged ||
-                    newEngineState.iteration >= paramsRef.current.nIter;
-
-                // Save last valid state (Requirements 12.5)
-                lastValidStateRef.current = newEngineState;
-
-                return {
-                    ...prevState,
-                    engineState: newEngineState,
-                    lossHistory: newLossHistory,
-                    isConverged: converged,
-                    isPlaying: converged ? false : prevState.isPlaying,
-                    isPaused: converged ? true : prevState.isPaused,
-                    error: null,
-                };
-            } catch (error) {
-                // Requirements 12.1: Handle errors gracefully
-                clearPlayback();
-                return {
-                    ...prevState,
-                    isPlaying: false,
-                    isPaused: true,
-                    error: error instanceof Error ? error.message : 'Training step failed',
-                };
-            }
+            return {
+                ...prevState,
+                engineState: newEngineState,
+                lossHistory: newLossHistory,
+                isConverged: converged,
+                isPlaying: converged ? false : prevState.isPlaying,
+                isPaused: converged ? true : prevState.isPaused,
+                error: null,
+            };
         });
-    }, [clearPlayback]);
+
+        // Self-scheduling: continue the loop if still playing and not single-step
+        // Apply speed throttle here (not in sendStep) so single-step/fast-forward remain instant
+        if (!converged && isLoopRunningRef.current && !isSingleStepRef.current) {
+            if (speedMsRef.current > 0) {
+                setTimeout(() => {
+                    if (isLoopRunningRef.current) sendStep();
+                }, speedMsRef.current);
+            } else {
+                sendStep();
+            }
+        }
+
+        // Reset single-step flag after use
+        isSingleStepRef.current = false;
+    }, [sendStep]);
+
+    /**
+     * Handle an error from the worker.
+     * Wired via setOnError in a useEffect below.
+     */
+    const handleWorkerError = useCallback((error: ErrorMessage) => {
+        // Discard stale error responses
+        if (error.generation !== generationRef.current) return;
+
+        pendingStepRef.current = false;
+        isLoopRunningRef.current = false;
+
+        setState(prevState => ({
+            ...prevState,
+            isPlaying: false,
+            isPaused: true,
+            error: error.message,
+        }));
+    }, []);
+
+    // Wire worker callbacks
+    useEffect(() => {
+        setOnResult(handleStepResult);
+    }, [setOnResult, handleStepResult]);
+
+    useEffect(() => {
+        setOnError(handleWorkerError);
+    }, [setOnError, handleWorkerError]);
 
     /**
      * Start training playback
@@ -141,7 +222,6 @@ export function useTrainingController(
             if (prevState.isConverged || !prevState.engineState) {
                 return prevState;
             }
-
             return {
                 ...prevState,
                 isPlaying: true,
@@ -150,16 +230,11 @@ export function useTrainingController(
             };
         });
 
-        // Clear any existing interval
         clearPlayback();
-
-        // Start new interval for continuous stepping
-        intervalRef.current = window.setInterval(() => {
-            animationFrameRef.current = requestAnimationFrame(() => {
-                executeStep();
-            });
-        }, 100); // 100ms per step (configurable)
-    }, [clearPlayback, executeStep]);
+        isLoopRunningRef.current = true;
+        isSingleStepRef.current = false;
+        sendStep();
+    }, [clearPlayback, sendStep]);
 
     /**
      * Pause training playback
@@ -179,8 +254,10 @@ export function useTrainingController(
      * Requirements: 1.3
      */
     const stepOnce = useCallback(() => {
-        executeStep();
-    }, [executeStep]);
+        isSingleStepRef.current = true;
+        // ignorePending so fast-forward interval calls are never silently dropped
+        sendStep({ ignorePending: true });
+    }, [sendStep]);
 
     /**
      * Reset training to initial state
@@ -188,18 +265,20 @@ export function useTrainingController(
      */
     const reset = useCallback(() => {
         clearPlayback();
+        generationRef.current += 1;
+        pendingStepRef.current = false;
 
         setState(prevState => {
             try {
                 const dataset = prevState.engineState?.dataset || loadDataset(initialDataset);
                 const engineState = initState(algorithm, dataset, paramsRef.current);
 
-                // Save last valid state (Requirements 12.5)
+                engineStateRef.current = engineState;
                 lastValidStateRef.current = engineState;
 
                 return {
                     engineState,
-                    lossHistory: [], // Clear history on reset (Requirements 4.4)
+                    lossHistory: [],
                     isPlaying: false,
                     isPaused: false,
                     isConverged: false,
@@ -223,6 +302,10 @@ export function useTrainingController(
      * Requirements: 12.4, 12.5
      */
     const clearError = useCallback(() => {
+        const restoredState = lastValidStateRef.current;
+        if (restoredState) {
+            engineStateRef.current = restoredState;
+        }
         setState(prevState => ({
             ...prevState,
             engineState: lastValidStateRef.current || prevState.engineState,
@@ -235,25 +318,25 @@ export function useTrainingController(
      * Requirements: 2.1, 2.2, 2.3, 2.5
      */
     const updateParams = useCallback((newParams: Partial<Params>) => {
-        // Pause if playing (Requirements 2.5)
-        if (state.isPlaying) {
+        if (isPlayingRef.current) {
             clearPlayback();
         }
 
+        generationRef.current += 1;
+        pendingStepRef.current = false;
         paramsRef.current = { ...paramsRef.current, ...newParams };
 
-        // Reset training state
         setState(prevState => {
             try {
                 const dataset = prevState.engineState?.dataset || loadDataset(initialDataset);
                 const engineState = initState(algorithm, dataset, paramsRef.current);
 
-                // Save last valid state (Requirements 12.5)
+                engineStateRef.current = engineState;
                 lastValidStateRef.current = engineState;
 
                 return {
                     engineState,
-                    lossHistory: [], // Clear history on reset
+                    lossHistory: [],
                     isPlaying: false,
                     isPaused: false,
                     isConverged: false,
@@ -269,29 +352,31 @@ export function useTrainingController(
                 };
             }
         });
-    }, [state.isPlaying, clearPlayback, algorithm, initialDataset]);
+    }, [clearPlayback, algorithm, initialDataset]);
 
     /**
      * Change dataset and reset
      * Requirements: 7.2, 7.4
      */
     const changeDataset = useCallback((datasetName: string) => {
-        // Pause if playing (Requirements 7.4)
-        if (state.isPlaying) {
+        if (isPlayingRef.current) {
             clearPlayback();
         }
+
+        generationRef.current += 1;
+        pendingStepRef.current = false;
 
         setState(prevState => {
             try {
                 const dataset = loadDataset(datasetName);
                 const engineState = initState(algorithm, dataset, paramsRef.current);
 
-                // Save last valid state (Requirements 12.5)
+                engineStateRef.current = engineState;
                 lastValidStateRef.current = engineState;
 
                 return {
                     engineState,
-                    lossHistory: [], // Clear history on dataset change
+                    lossHistory: [],
                     isPlaying: false,
                     isPaused: false,
                     isConverged: false,
@@ -307,7 +392,7 @@ export function useTrainingController(
                 };
             }
         });
-    }, [state.isPlaying, clearPlayback, algorithm]);
+    }, [clearPlayback, algorithm]);
 
     // Cleanup on unmount
     useEffect(() => {

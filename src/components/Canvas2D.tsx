@@ -14,6 +14,9 @@ import {
     DrawConfig,
 } from '../utils/canvas';
 import { useVisualization } from '../hooks/useVisualization';
+import PointTooltip from './PointTooltip';
+import { getAlgorithmLabels } from '../utils/algorithmLabels';
+import type { HoveredPoint } from '../types/ui';
 
 interface Canvas2DProps {
     state: any; // ML Engine state
@@ -34,16 +37,10 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number | undefined>(undefined);
+    const mouseMoveFrameRef = useRef<number | null>(null);
 
     // Tooltip state
-    const [hoveredPoint, setHoveredPoint] = useState<{
-        index: number;
-        x: number;
-        y: number;
-        dataX: number;
-        dataY: number;
-        label: number;
-    } | null>(null);
+    const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
 
     // Use a ref for the render loop to avoid re-triggering useEffect continuously during hover
     const hoveredPointRef = useRef(hoveredPoint);
@@ -138,15 +135,15 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
                         // Map center of cell back to domain coordinates
                         const x1 = xScale.invert(px + cellW / 2);
                         const x2 = yScale.invert(py + cellH / 2);
-                        
+
                         const z = (state.weights[0] || 0) * x1 + (state.weights[1] || 0) * x2 + state.bias;
                         const p = 1 / (1 + Math.exp(-z));
-                        
+
                         // Red (239, 68, 68) to Blue (59, 130, 246)
                         const r = Math.round(59 + (239 - 59) * p);
                         const g = Math.round(130 + (68 - 130) * p);
                         const b = Math.round(246 + (68 - 246) * p);
-                        
+
                         ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
                         ctx.fillRect(px, py, cellW, cellH);
                     }
@@ -156,10 +153,10 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
             // Draw data points
             if (state.dataset?.X && state.dataset?.y) {
                 drawDataPoints(
-                    config, 
-                    state.dataset.X, 
-                    state.dataset.y, 
-                    colors, 
+                    config,
+                    state.dataset.X,
+                    state.dataset.y,
+                    colors,
                     state.dataset.task || 'classification',
                     hoveredPointRef.current?.index ?? null
                 );
@@ -188,51 +185,61 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
         };
     }, [state, boundaryPoints, marginPosPoints, marginNegPoints, width, height, xScale, yScale, margin, colors, viewMode]);
 
-    // Mouse Tracking Logic
+    // Mouse Tracking Logic — throttled with RAF so the scan runs at most once per frame
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         if (!state?.dataset?.X || !state?.dataset?.y) return;
-        
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        let closestDist = Infinity;
-        let closestIdx = -1;
-        let closestPx = 0;
-        let closestPy = 0;
-        
-        // Find the closest point in coordinate space
-        for (let i = 0; i < state.dataset.X.length; i++) {
-            const point = state.dataset.X[i];
-            const px = xScale(point[0]);
-            const py = yScale(point[1] !== undefined ? point[1] : state.dataset.y[i]);
-            
-            const dist = Math.sqrt(Math.pow(px - mouseX, 2) + Math.pow(py - mouseY, 2));
-            if (dist < closestDist) {
-                closestDist = dist;
-                closestIdx = i;
-                closestPx = px;
-                closestPy = py;
+
+        // If a frame is already pending, skip — we'll pick up the latest position next frame
+        if (mouseMoveFrameRef.current !== null) return;
+
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+
+        mouseMoveFrameRef.current = requestAnimationFrame(() => {
+            mouseMoveFrameRef.current = null;
+
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = clientX - rect.left;
+            const mouseY = clientY - rect.top;
+
+            let closestDist = Infinity;
+            let closestIdx = -1;
+            let closestPx = 0;
+            let closestPy = 0;
+
+            // Find the closest point in coordinate space
+            for (let i = 0; i < state.dataset.X.length; i++) {
+                const point = state.dataset.X[i];
+                const px = xScale(point[0]);
+                const py = yScale(point[1] !== undefined ? point[1] : state.dataset.y[i]);
+
+                const dist = Math.sqrt(Math.pow(px - mouseX, 2) + Math.pow(py - mouseY, 2));
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestIdx = i;
+                    closestPx = px;
+                    closestPy = py;
+                }
             }
-        }
-        
-        // Only hover if exactly within 12 pixels
-        if (closestDist <= 12 && closestIdx !== -1) {
-            const point = state.dataset.X[closestIdx];
-            setHoveredPoint({
-                index: closestIdx,
-                x: closestPx,
-                y: closestPy,
-                dataX: point[0],
-                dataY: point[1] !== undefined ? point[1] : state.dataset.y[closestIdx],
-                label: state.dataset.y[closestIdx]
-            });
-        } else {
-            setHoveredPoint(null);
-        }
+
+            // Only hover if exactly within 12 pixels
+            if (closestDist <= 12 && closestIdx !== -1) {
+                const point = state.dataset.X[closestIdx];
+                setHoveredPoint({
+                    index: closestIdx,
+                    x: closestPx,
+                    y: closestPy,
+                    dataX: point[0],
+                    dataY: point[1] !== undefined ? point[1] : state.dataset.y[closestIdx],
+                    label: state.dataset.y[closestIdx]
+                });
+            } else {
+                setHoveredPoint(null);
+            }
+        });
     }, [state, xScale, yScale]);
 
     const handleMouseLeave = useCallback(() => {
@@ -240,17 +247,17 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
     }, []);
 
     // Generate accessible description for canvas visualization
-    const getVisualizationDescription = useCallback(() => {
+    const visualizationDescription = useMemo(() => {
         if (!state || !state.dataset?.X || !state.dataset?.y) {
             return 'Visualization canvas: No data loaded';
         }
 
         const numPoints = state.dataset.X.length;
-        const task = state.dataset.task || 'classification';
         const iteration = state.iteration || 0;
         const loss = state.loss ? state.loss.toFixed(4) : 'N/A';
+        const { isRegression } = getAlgorithmLabels(state.algorithm);
 
-        if (task === 'classification') {
+        if (!isRegression) {
             const class0Count = state.dataset.y.filter((y: number) => y === 0).length;
             const class1Count = state.dataset.y.filter((y: number) => y === 1).length;
             return `2D visualization showing ${numPoints} data points: ${class0Count} blue points (class 0) and ${class1Count} red points (class 1). Current iteration: ${iteration}. Current loss: ${loss}. ${boundaryPoints.length > 0 ? 'Decision boundary is displayed.' : 'No decision boundary yet.'}`;
@@ -263,7 +270,7 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
         <div
             style={{ position: 'relative', width, height }}
             role="img"
-            aria-label={getVisualizationDescription()}
+            aria-label={visualizationDescription}
         >
             {/* Background layer: grid + axes */}
             <canvas
@@ -292,65 +299,15 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
                 }}
                 aria-hidden="true"
             />
-            
+
             {/* Plotly-style Floating Tooltip */}
             {hoveredPoint && (
-                <div 
-                    className="absolute z-10 bg-gray-900/90 text-white text-xs rounded shadow-lg pointer-events-none transform -translate-x-1/2 -translate-y-[calc(100%+10px)]"
-                    style={{
-                        left: hoveredPoint.x,
-                        top: hoveredPoint.y,
-                        padding: '6px 10px',
-                        minWidth: '100px'
-                    }}
-                >
-                    {(() => {
-                        let classNameText = hoveredPoint.label === 0 ? 'Blue (0)' : 'Red (1)';
-                        let f1Name = 'Feature 1:';
-                        let f2Name = 'Feature 2:';
-                        const isRegression = state.algorithm === 'linearRegression';
-                        
-                        if (state.algorithm === 'logisticRegression') {
-                            classNameText = hoveredPoint.label === 0 ? 'Setosa (0)' : 'Non-Setosa (1)';
-                            f1Name = 'Sepal Length:';
-                            f2Name = 'Sepal Width:';
-                        } else if (state.algorithm === 'svm') {
-                            classNameText = hoveredPoint.label === 0 ? 'Cluster 0' : 'Cluster 1';
-                            f1Name = 'Feat 1 (X):';
-                            f2Name = 'Feat 2 (Y):';
-                        } else if (isRegression) {
-                            f1Name = 'Input (x):';
-                            f2Name = 'Target (y):';
-                        }
-                        
-                        return (
-                            <>
-                                {!isRegression && (
-                                    <div className="font-semibold border-b border-gray-600 pb-1 mb-1">
-                                        Class: {classNameText}
-                                    </div>
-                                )}
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-gray-300 whitespace-nowrap">{f1Name}</span>
-                                    <span className="font-mono">{hoveredPoint.dataX.toFixed(3)}</span>
-                                </div>
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-gray-300 whitespace-nowrap">{f2Name}</span>
-                                    <span className="font-mono">{hoveredPoint.dataY.toFixed(3)}</span>
-                                </div>
-                            </>
-                        );
-                    })()}
-                    {/* Tooltip triangle pointer */}
-                    <div 
-                        className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-gray-900/90"
-                    ></div>
-                </div>
+                <PointTooltip algorithm={state.algorithm} point={hoveredPoint} />
             )}
 
             {/* Screen reader only text description */}
             <div className="sr-only">
-                {getVisualizationDescription()}
+                {visualizationDescription}
             </div>
         </div>
     );

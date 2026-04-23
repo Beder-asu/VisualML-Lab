@@ -8,8 +8,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTrainingController } from '../useTrainingController';
+import type { StepResultMessage, ErrorMessage } from '../../types/worker';
 
-// Mock the ML Engine
+// ── Mock ML Engine ────────────────────────────────────────────────────────────
 vi.mock('../../../engine/index.js', () => ({
     initState: vi.fn((algorithm: string, dataset: any, _params: any) => ({
         algorithm,
@@ -20,12 +21,6 @@ vi.mock('../../../engine/index.js', () => ({
         converged: false,
         dataset,
     })),
-    step: vi.fn((state: any, params: any) => ({
-        ...state,
-        loss: 0.5,
-        iteration: state.iteration + 1,
-        converged: state.iteration + 1 >= params.nIter,
-    })),
     loadDataset: vi.fn((name: string) => ({
         name,
         X: [[0.1, 0.2], [0.3, 0.4]],
@@ -34,22 +29,79 @@ vi.mock('../../../engine/index.js', () => ({
 }));
 
 // @ts-ignore
-import { initState, step, loadDataset } from '../../../engine/index.js';
+import { initState, loadDataset } from '../../../engine/index.js';
+
+// ── Mock useEngineWorker ──────────────────────────────────────────────────────
+// We capture the callbacks so tests can simulate worker responses.
+let capturedOnResult: ((msg: StepResultMessage) => void) | null = null;
+let capturedOnError: ((msg: ErrorMessage) => void) | null = null;
+let mockRequestStep: ReturnType<typeof vi.fn>;
+
+vi.mock('../useEngineWorker', () => ({
+    useEngineWorker: vi.fn(() => ({
+        requestStep: mockRequestStep,
+        setOnResult: vi.fn((cb: (msg: StepResultMessage) => void) => {
+            capturedOnResult = cb;
+        }),
+        setOnError: vi.fn((cb: (msg: ErrorMessage) => void) => {
+            capturedOnError = cb;
+        }),
+    })),
+}));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Simulate the worker returning a successful step result */
+function simulateStepResult(
+    state: any,
+    generation: number,
+    overrides: Partial<any> = {}
+) {
+    act(() => {
+        capturedOnResult?.({
+            type: 'step:result',
+            state: { ...state, ...overrides },
+            generation,
+        });
+    });
+}
+
+/** Simulate the worker returning an error */
+function simulateWorkerError(message: string, generation: number) {
+    act(() => {
+        capturedOnError?.({ type: 'error', message, generation });
+    });
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useTrainingController', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
-        vi.useFakeTimers();
+        capturedOnResult = null;
+        capturedOnError = null;
+        mockRequestStep = vi.fn();
+
+        // Re-apply the mock so each test gets fresh captured callbacks
+        const { useEngineWorker } = vi.mocked(
+            await import('../useEngineWorker')
+        );
+        (useEngineWorker as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+            requestStep: mockRequestStep,
+            setOnResult: vi.fn((cb: (msg: StepResultMessage) => void) => {
+                capturedOnResult = cb;
+            }),
+            setOnError: vi.fn((cb: (msg: ErrorMessage) => void) => {
+                capturedOnError = cb;
+            }),
+        }));
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
-        vi.useRealTimers();
     });
 
-    // ---------------------------------------------------------------------------
-    // Initialization tests
-    // ---------------------------------------------------------------------------
+    // ── Initialization ──────────────────────────────────────────────────────
 
     it('initializes with correct default state', () => {
         const { result } = renderHook(() =>
@@ -57,7 +109,6 @@ describe('useTrainingController', () => {
         );
 
         const [state] = result.current;
-
         expect(state.engineState).toBeTruthy();
         expect(state.lossHistory).toEqual([]);
         expect(state.isPlaying).toBe(false);
@@ -67,8 +118,7 @@ describe('useTrainingController', () => {
     });
 
     it('handles initialization errors gracefully', () => {
-        const mockInitState = vi.mocked(initState);
-        mockInitState.mockImplementationOnce(() => {
+        vi.mocked(initState).mockImplementationOnce(() => {
             throw new Error('Invalid algorithm');
         });
 
@@ -77,156 +127,261 @@ describe('useTrainingController', () => {
         );
 
         const [state] = result.current;
-
         expect(state.engineState).toBeNull();
-        expect(state.error).toBeTruthy();
         expect(state.error).toContain('Invalid algorithm');
     });
 
-    // ---------------------------------------------------------------------------
-    // Play/Pause state transitions (Requirements 1.1, 1.2)
-    // ---------------------------------------------------------------------------
+    // ── Play / Pause (Requirements 1.1, 1.2) ───────────────────────────────
 
-    it('transitions from ready to playing when play is called', () => {
+    it('transitions to playing when play is called', () => {
         const { result } = renderHook(() =>
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        act(() => { result.current[1].play(); });
 
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(true);
-        expect(state.isPaused).toBe(false);
+        expect(result.current[0].isPlaying).toBe(true);
+        expect(result.current[0].isPaused).toBe(false);
     });
 
-    it('transitions from playing to paused when pause is called', () => {
+    it('posts a step request when play is called', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        act(() => { result.current[1].play(); });
 
-        // Pause
-        act(() => {
-            const [, controls] = result.current;
-            controls.pause();
-        });
-
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
-        expect(state.isPaused).toBe(true);
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
     });
 
-    it('executes steps automatically when playing', async () => {
+    it('transitions to paused when pause is called', () => {
         const { result } = renderHook(() =>
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        const mockStep = vi.mocked(step);
-        mockStep.mockClear();
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].pause(); });
 
-        // Mock step to converge immediately to prevent infinite loop
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: _params.nIter,
-            converged: true,
-        }));
-
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
-
-        // Advance timers to trigger interval
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
-
-        // Step should have been called
-        expect(mockStep).toHaveBeenCalled();
+        expect(result.current[0].isPlaying).toBe(false);
+        expect(result.current[0].isPaused).toBe(true);
     });
 
-    // ---------------------------------------------------------------------------
-    // Step function (Requirement 1.3)
-    // ---------------------------------------------------------------------------
+    // ── Step result handling ────────────────────────────────────────────────
 
-    it('executes a single step when step is called', () => {
-        // Reset mock to increment properly
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
+    it('updates engineState when worker returns a result', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        const [initialState] = result.current;
-        const initialIteration = initialState.engineState?.iteration || 0;
+        const initialState = result.current[0].engineState!;
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        act(() => { result.current[1].play(); });
 
-        const [newState] = result.current;
-        expect(newState.engineState?.iteration).toBe(initialIteration + 1);
+        simulateStepResult(
+            { ...initialState, loss: 0.5, iteration: 1, converged: false },
+            0 // generation 0
+        );
+
+        expect(result.current[0].engineState?.iteration).toBe(1);
+        expect(result.current[0].engineState?.loss).toBe(0.5);
     });
 
-    it('updates loss value after step', () => {
+    it('appends loss to history when worker returns a result', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const initialState = result.current[0].engineState!;
 
-        const [state] = result.current;
-        expect(state.engineState?.loss).toBe(0.5); // From mock
+        act(() => { result.current[1].play(); });
+
+        simulateStepResult({ ...initialState, loss: 0.42, iteration: 1, converged: false }, 0);
+
+        expect(result.current[0].lossHistory).toEqual([0.42]);
     });
 
-    // ---------------------------------------------------------------------------
-    // Reset function (Requirement 1.4)
-    // ---------------------------------------------------------------------------
-
-    it('resets to initial state when reset is called', () => {
+    it('self-schedules next step when playing and not converged', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a few steps
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-            controls.step();
-        });
+        const initialState = result.current[0].engineState!;
 
-        // Reset
-        act(() => {
-            const [, controls] = result.current;
-            controls.reset();
-        });
+        act(() => { result.current[1].play(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
 
-        const [state] = result.current;
-        expect(state.engineState?.iteration).toBe(0);
-        expect(state.engineState?.loss).toBeNull();
-        expect(state.isPlaying).toBe(false);
-        expect(state.isPaused).toBe(false);
-        expect(state.isConverged).toBe(false);
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
+
+        expect(mockRequestStep).toHaveBeenCalledTimes(2);
+    });
+
+    it('pendingStepRef prevents double-sending concurrent step requests', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        act(() => { result.current[1].play(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+
+        // While the first step is still in-flight (no result yet), calling play again
+        // should not post a second concurrent request because pendingStepRef is true
+        act(() => { result.current[1].play(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops self-scheduling when paused before result arrives', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].pause(); });
+
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
+
+        // No additional requestStep after pause
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores stale generation results', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].reset(); }); // bumps generation to 1
+
+        // Deliver result for old generation 0 — should be ignored
+        simulateStepResult({ ...initialState, loss: 0.99, iteration: 1, converged: false }, 0);
+
+        expect(result.current[0].engineState?.iteration).toBe(0);
+        expect(result.current[0].lossHistory).toEqual([]);
+    });
+
+    // ── Convergence (Requirement 1.5) ───────────────────────────────────────
+
+    it('detects convergence and stops playing', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+
+        simulateStepResult({ ...initialState, loss: 0.01, iteration: 1, converged: true }, 0);
+
+        expect(result.current[0].isConverged).toBe(true);
+        expect(result.current[0].isPlaying).toBe(false);
+    });
+
+    it('detects convergence when iteration reaches nIter', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 10, converged: false }, 0);
+
+        expect(result.current[0].isConverged).toBe(true);
+    });
+
+    it('does not self-schedule after convergence', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+
+        simulateStepResult({ ...initialState, loss: 0.01, iteration: 1, converged: true }, 0);
+
+        expect(mockRequestStep).toHaveBeenCalledTimes(1); // no extra call
+    });
+
+    // ── Error handling (Requirements 12.1, 12.3) ───────────────────────────
+
+    it('sets error state and stops playing when worker returns an error', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        act(() => { result.current[1].play(); });
+
+        simulateWorkerError('Step failed', 0);
+
+        expect(result.current[0].error).toContain('Step failed');
+        expect(result.current[0].isPlaying).toBe(false);
+        expect(result.current[0].isPaused).toBe(true);
+    });
+
+    it('ignores stale generation errors', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].reset(); }); // bumps generation to 1
+
+        simulateWorkerError('Old error', 0); // stale generation
+
+        expect(result.current[0].error).toBeNull();
+    });
+
+    // ── stepOnce (Requirement 1.3) ──────────────────────────────────────────
+
+    it('posts exactly one step request when stepOnce is called', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        act(() => { result.current[1].step(); });
+
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not self-schedule after stepOnce result', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].step(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
+
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
+
+        expect(mockRequestStep).toHaveBeenCalledTimes(1); // no extra call
+    });
+
+    // ── Reset (Requirement 1.4) ─────────────────────────────────────────────
+
+    it('resets to initial state', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        const initialState = result.current[0].engineState!;
+
+        act(() => { result.current[1].play(); });
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
+
+        act(() => { result.current[1].reset(); });
+
+        expect(result.current[0].engineState?.iteration).toBe(0);
+        expect(result.current[0].lossHistory).toEqual([]);
+        expect(result.current[0].isPlaying).toBe(false);
+        expect(result.current[0].isConverged).toBe(false);
     });
 
     it('stops playback when reset is called during training', () => {
@@ -234,412 +389,145 @@ describe('useTrainingController', () => {
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].reset(); });
 
-        // Reset
-        act(() => {
-            const [, controls] = result.current;
-            controls.reset();
-        });
-
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
+        expect(result.current[0].isPlaying).toBe(false);
     });
 
-    // ---------------------------------------------------------------------------
-    // Convergence detection (Requirement 1.5)
-    // ---------------------------------------------------------------------------
-
-    it('detects convergence and auto-pauses', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.01,
-            iteration: state.iteration + 1,
-            converged: true, // Force convergence
-        }));
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
-        );
-
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
-        const [state] = result.current;
-        expect(state.isConverged).toBe(true);
-        expect(state.isPlaying).toBe(false);
-    });
-
-    it('detects convergence when iteration reaches nIter', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: _params.nIter, // Reach max iterations
-            converged: false,
-        }));
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
-        );
-
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
-        const [state] = result.current;
-        expect(state.isConverged).toBe(true);
-    });
-
-    // ---------------------------------------------------------------------------
-    // Error handling (Requirements 12.1, 12.3)
-    // ---------------------------------------------------------------------------
-
-    it('catches errors during step and sets error state', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Step failed');
-        });
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
-        );
-
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
-        const [state] = result.current;
-        expect(state.error).toBeTruthy();
-        expect(state.error).toContain('Step failed');
-        expect(state.isPlaying).toBe(false);
-        expect(state.isPaused).toBe(true);
-    });
-
-    it('stops playback when error occurs', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Error during step');
-        });
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
-        );
-
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
-
-        // Advance timer to trigger step
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
-
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
-        expect(state.error).toBeTruthy();
-    });
-
-    // ---------------------------------------------------------------------------
-    // Parameter updates (Requirements 2.1, 2.5)
-    // ---------------------------------------------------------------------------
+    // ── Parameter updates (Requirements 2.1, 2.5) ──────────────────────────
 
     it('pauses training when params are updated during playback', () => {
         const { result } = renderHook(() =>
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].updateParams({ lr: 0.05 }); });
 
-        // Update params
-        act(() => {
-            const [, controls] = result.current;
-            controls.updateParams({ lr: 0.05 });
-        });
-
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
+        expect(result.current[0].isPlaying).toBe(false);
     });
 
     it('resets state when params are updated', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const initialState = result.current[0].engineState!;
 
-        // Update params
-        act(() => {
-            const [, controls] = result.current;
-            controls.updateParams({ lr: 0.05 });
-        });
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        const [state] = result.current;
-        expect(state.engineState?.iteration).toBe(0);
+        act(() => { result.current[1].updateParams({ lr: 0.05 }); });
+
+        expect(result.current[0].engineState?.iteration).toBe(0);
     });
 
-    // ---------------------------------------------------------------------------
-    // Dataset changes (Requirements 7.2, 7.4)
-    // ---------------------------------------------------------------------------
+    // ── Dataset changes (Requirements 7.2, 7.4) ────────────────────────────
 
     it('pauses training when dataset is changed during playback', () => {
         const { result } = renderHook(() =>
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        act(() => { result.current[1].play(); });
+        act(() => { result.current[1].changeDataset('blobs'); });
 
-        // Change dataset
-        act(() => {
-            const [, controls] = result.current;
-            controls.changeDataset('blobs');
-        });
-
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
+        expect(result.current[0].isPlaying).toBe(false);
     });
 
     it('resets state when dataset is changed', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const initialState = result.current[0].engineState!;
 
-        // Change dataset
-        act(() => {
-            const [, controls] = result.current;
-            controls.changeDataset('blobs');
-        });
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...initialState, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        const [state] = result.current;
-        expect(state.engineState?.iteration).toBe(0);
+        act(() => { result.current[1].changeDataset('blobs'); });
+
+        expect(result.current[0].engineState?.iteration).toBe(0);
         expect(loadDataset).toHaveBeenCalledWith('blobs');
     });
 
-    // ---------------------------------------------------------------------------
-    // Loss history management (Requirements 4.2, 4.4, 4.5)
-    // ---------------------------------------------------------------------------
+    // ── Loss history (Requirements 4.2, 4.4, 4.5) ──────────────────────────
 
-    it('appends loss value to history after each step', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
+    it('appends loss value to history after each step result', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Initial state should have empty loss history
-        expect(result.current[0].lossHistory).toEqual([]);
+        const s = result.current[0].engineState!;
 
-        // Take first step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
         expect(result.current[0].lossHistory).toEqual([0.5]);
 
-        // Take second step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
-        expect(result.current[0].lossHistory).toEqual([0.5, 0.5]);
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.4, iteration: 2, converged: false }, 0);
+        expect(result.current[0].lossHistory).toEqual([0.5, 0.4]);
     });
 
     it('clears loss history on reset', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a few steps to build up history
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-            controls.step();
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
-        expect(result.current[0].lossHistory.length).toBe(3);
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        // Reset
-        act(() => {
-            const [, controls] = result.current;
-            controls.reset();
-        });
+        act(() => { result.current[1].reset(); });
 
         expect(result.current[0].lossHistory).toEqual([]);
     });
 
     it('clears loss history when params are updated', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a few steps
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
-        expect(result.current[0].lossHistory.length).toBe(2);
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        // Update params
-        act(() => {
-            const [, controls] = result.current;
-            controls.updateParams({ lr: 0.05 });
-        });
+        act(() => { result.current[1].updateParams({ lr: 0.05 }); });
 
         expect(result.current[0].lossHistory).toEqual([]);
     });
 
     it('clears loss history when dataset is changed', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementation((state: any, _params: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take a few steps
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
-        expect(result.current[0].lossHistory.length).toBe(2);
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        // Change dataset
-        act(() => {
-            const [, controls] = result.current;
-            controls.changeDataset('blobs');
-        });
+        act(() => { result.current[1].changeDataset('blobs'); });
 
         expect(result.current[0].lossHistory).toEqual([]);
     });
 
-    it('downsamples loss history when it exceeds 100 points', () => {
-        const mockStep = vi.mocked(step);
-        let callCount = 0;
-        mockStep.mockImplementation((state: any, _params: any) => {
-            callCount++;
-            return {
-                ...state,
-                loss: callCount * 0.01, // Different loss each time
-                iteration: state.iteration + 1,
-                converged: false,
-            };
-        });
-
+    it('caps loss history at 200 points using a ring buffer', () => {
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 200 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 300 }, 0)
         );
 
-        // Take 101 steps to trigger downsampling
-        act(() => {
-            const [, controls] = result.current;
-            for (let i = 0; i < 101; i++) {
-                controls.step();
-            }
-        });
+        const s = result.current[0].engineState!;
 
-        const [state] = result.current;
+        // Simulate 201 step results
+        for (let i = 1; i <= 201; i++) {
+            act(() => { result.current[1].step(); });
+            simulateStepResult({ ...s, loss: i * 0.01, iteration: i, converged: false }, 0);
+        }
 
-        // After 101 steps, downsampling should have occurred
-        // The history should be reduced to approximately 50-51 points
-        expect(state.lossHistory.length).toBeLessThanOrEqual(51);
-        expect(state.lossHistory.length).toBeGreaterThan(0);
-    });
-
-    it('preserves loss values during downsampling', () => {
-        const mockStep = vi.mocked(step);
-        let callCount = 0;
-        mockStep.mockImplementation((state: any, _params: any) => {
-            callCount++;
-            return {
-                ...state,
-                loss: callCount, // Use call count as loss for easy verification
-                iteration: state.iteration + 1,
-                converged: false,
-            };
-        });
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 200 })
-        );
-
-        // Take 101 steps
-        act(() => {
-            const [, controls] = result.current;
-            for (let i = 0; i < 101; i++) {
-                controls.step();
-            }
-        });
-
-        const [state] = result.current;
-
-        // Verify that downsampled values are from the original sequence
-        // After downsampling, we should have every other value
-        state.lossHistory.forEach((loss) => {
-            expect(loss).toBeGreaterThan(0);
-            expect(loss).toBeLessThanOrEqual(101);
-        });
+        expect(result.current[0].lossHistory.length).toBe(200);
     });
 });

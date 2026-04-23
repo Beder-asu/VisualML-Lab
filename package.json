@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test": "vitest --run",
     "test:ui": "vitest --run --config vitest.config.ui.ts",
+    "test:all": "vitest --run && vitest --run --config vitest.config.ui.ts",
+    "bench": "vitest bench",
     "test:watch": "vitest",
     "test:ui:watch": "vitest --config vitest.config.ui.ts"
   },

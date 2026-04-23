@@ -8,8 +8,11 @@ import { validateParams } from '../validate.js';
 
 /**
  * Advance SVM training by one sub-gradient descent step.
- * Extracts the inner loop body from port/SVM.js.
- * Computes hinge loss.
+ * Matches port/SVM.js exactly.
+ *
+ * Objective: min  (1/2)||w||^2 * 2  +  C * sum_violations(hinge)
+ * Gradient for w:  dw = 2w - C * sum(y_i * x_i)   for margin violators
+ * Gradient for b:  db = -C * sum(y_i)               for margin violators
  *
  * Labels are treated as 0/1 and converted to -1/+1 internally.
  *
@@ -46,6 +49,7 @@ function stepSVM(state, params) {
     }
 
     // dw = 2w - C * sum(y_i * x_i) for margin violators
+    // (gradient of ||w||^2 + C * hinge_sum w.r.t. w)
     const dw = scale(w, 2);
     for (const i of marginPts) {
         for (let j = 0; j < n; j++) {
@@ -61,7 +65,7 @@ function stepSVM(state, params) {
     const newW = sub(w, scale(dw, lr));
     const newBias = bias - lr * db;
 
-    // Hinge loss: (1/m) * sum(max(0, 1 - y_i*(w·x_i + b))) + ||w||^2
+    // Hinge loss for display: C * sum(max(0, 1 - y_i*(w·x_i + b))) + ||w||^2
     let hingeLoss = 0;
     for (let i = 0; i < m; i++) {
         const margin = ySvm[i] * (dot(X[i], newW) + newBias);
@@ -69,7 +73,8 @@ function stepSVM(state, params) {
     }
     let wNormSq = 0;
     for (let j = 0; j < n; j++) wNormSq += newW[j] * newW[j];
-    hingeLoss = hingeLoss / m + wNormSq;
+    // Normalize for display so the chart is readable regardless of m
+    hingeLoss = (C * hingeLoss + wNormSq) / m;
 
     return {
         ...state,

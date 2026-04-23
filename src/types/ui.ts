@@ -1,7 +1,18 @@
+import type { State } from './engine';
+
 // UI State Types
 
+export interface HoveredPoint {
+    index: number;
+    x: number;
+    y: number;
+    dataX: number;
+    dataY: number;
+    label: number;
+}
+
 export interface TrainingState {
-    engineState: any | null;  // Will be typed from ML Engine
+    engineState: State | null;
     lossHistory: number[];
     isPlaying: boolean;
     isPaused: boolean;
@@ -14,7 +25,7 @@ export interface TrainingControls {
     pause: () => void;
     step: () => void;
     reset: () => void;
-    updateParams: (newParams: any) => void;
+    updateParams: (newParams: Partial<import('./engine').Params>) => void;
     changeDataset: (datasetName: string) => void;
     clearError: () => void;
 }

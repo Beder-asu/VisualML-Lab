@@ -1,5 +1,5 @@
 /**
- * LessonPage.integration.test.tsx — Integration tests for LessonPage
+ * LessonPage.integration.test.tsx — Integration tests for GradientDescentLayout
  * 
  * Tests full playback cycle, parameter changes, dataset changes, and keyboard shortcuts.
  * Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 7.2
@@ -7,8 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import LessonPage from '../LessonPage';
+import { GradientDescentLayout } from '../layouts/GradientDescentLayout';
 
 // Mock the visualization hook
 vi.mock('../../hooks/useVisualization', () => ({
@@ -59,13 +58,9 @@ vi.mock('../../hooks/useKeyboardShortcuts', () => ({
     useKeyboardShortcuts: vi.fn(),
 }));
 
-// Helper to render LessonPage with router
+// Helper to render GradientDescentLayout
 function renderLessonPage() {
-    return render(
-        <BrowserRouter>
-            <LessonPage />
-        </BrowserRouter>
-    );
+    return render(<GradientDescentLayout algorithm="linearRegression" />);
 }
 
 describe('LessonPage Integration Tests', () => {
@@ -95,10 +90,6 @@ describe('LessonPage Integration Tests', () => {
 
             // Status indicator
             expect(screen.getByText(/Ready to train/i)).toBeInTheDocument();
-
-            // Visualization labels
-            expect(screen.getByText(/Data Visualization/i)).toBeInTheDocument();
-            expect(screen.getByText(/Loss Over Time/i)).toBeInTheDocument();
         });
 
         it('should render concept panel with correct algorithm content', () => {

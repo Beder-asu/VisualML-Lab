@@ -166,16 +166,20 @@ function buildLinear() {
 }
 
 // ---------------------------------------------------------------------------
-// Eagerly build all datasets at module load time
+// Lazy dataset registry — factories are called on first access, then cached
 // ---------------------------------------------------------------------------
 
-const DATASETS = {
-    'iris-2d': buildIris2d(),
-    'blobs': buildBlobs(),
-    'linear': buildLinear(),
-};
+/** @type {Map<string, () => object>} */
+const DATASET_FACTORIES = new Map([
+    ['iris-2d', buildIris2d],
+    ['blobs', buildBlobs],
+    ['linear', buildLinear],
+]);
 
-const SUPPORTED_DATASETS = Object.keys(DATASETS);
+/** @type {Map<string, object>} */
+const cache = new Map();
+
+const SUPPORTED_DATASETS = [...DATASET_FACTORIES.keys()];
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -183,14 +187,19 @@ const SUPPORTED_DATASETS = Object.keys(DATASETS);
 
 /**
  * Load a named built-in dataset.
+ * Datasets are constructed lazily on first access and cached for subsequent calls.
  * @param {string} name
  * @returns {{ name: string, X: number[][], y: number[], task: string }}
  */
 function loadDataset(name) {
-    if (!DATASETS[name]) {
+    const factory = DATASET_FACTORIES.get(name);
+    if (!factory) {
         throw new Error(`Unsupported dataset: '${name}'. Supported: ${SUPPORTED_DATASETS.join(', ')}`);
     }
-    return DATASETS[name];
+    if (!cache.has(name)) {
+        cache.set(name, factory());
+    }
+    return { ...cache.get(name) };
 }
 
 export { loadDataset, normalizeColumns };

@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity } from 'lucide-react';
+import { Activity, Menu, X } from 'lucide-react';
 
 export function Header() {
     const location = useLocation();
-    
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     const links = [
         { path: '/', label: 'Home' },
         { path: '/eda-cheatsheet', label: 'EDA Cheat Sheet' },
         { path: '/lesson/linearRegression', label: 'Linear Regression' },
         { path: '/lesson/logisticRegression', label: 'Logistic Regression' },
         { path: '/lesson/svm', label: 'SVM' },
+        { path: '/lesson/decisionTree', label: 'Decision Tree' },
     ];
 
     return (
@@ -25,17 +28,47 @@ export function Header() {
                             VisualML Lab
                         </Link>
                     </div>
-                    
+
                     {/* Navigation Links */}
                     <nav className="hidden md:flex gap-6 items-center">
                         {links.map((link) => (
-                            <Link 
+                            <Link
                                 key={link.path}
-                                to={link.path} 
-                                className={`font-medium text-sm transition-colors whitespace-nowrap ${
+                                to={link.path}
+                                className={`font-medium text-sm transition-colors whitespace-nowrap ${location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path))
+                                        ? 'text-indigo-600'
+                                        : 'text-gray-500 hover:text-indigo-600'
+                                    }`}
+                            >
+                                {link.label}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    {/* Mobile Menu Button */}
+                    <button
+                        className="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        aria-label="Toggle mobile menu"
+                    >
+                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
+                </div>
+            </div>
+
+            {/* Mobile Navigation Menu */}
+            {isMobileMenuOpen && (
+                <div className="md:hidden border-t border-gray-200 bg-white">
+                    <nav className="flex flex-col px-4 pt-2 pb-4 space-y-1">
+                        {links.map((link) => (
+                            <Link
+                                key={link.path}
+                                to={link.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`px-3 py-2 rounded-md text-base font-medium transition-colors ${
                                     location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path))
-                                    ? 'text-indigo-600' 
-                                    : 'text-gray-500 hover:text-indigo-600'
+                                        ? 'bg-indigo-50 text-indigo-700'
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                             >
                                 {link.label}
@@ -43,7 +76,7 @@ export function Header() {
                         ))}
                     </nav>
                 </div>
-            </div>
+            )}
         </header>
     );
 }

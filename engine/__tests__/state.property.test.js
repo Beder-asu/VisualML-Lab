@@ -21,6 +21,14 @@ const DATASET_NAMES = ['iris-2d', 'blobs', 'linear'];
 const arbAlgorithm = fc.constantFrom(...ALGORITHMS);
 const arbDatasetName = fc.constantFrom(...DATASET_NAMES);
 
+// arbParams: lr in (0, 1], nIter in [1, 1000], C > 0 (required by SVM)
+// fc.float requires 32-bit float boundaries via Math.fround
+const arbParams = fc.record({
+    lr: fc.float({ min: Math.fround(1e-6), max: Math.fround(1), noNaN: true }),
+    nIter: fc.integer({ min: 1, max: 1000 }),
+    C: fc.float({ min: Math.fround(1e-6), max: Math.fround(100), noNaN: true }),
+});
+
 // ---------------------------------------------------------------------------
 // Property 4: initState produces a zeroed state
 // Feature: ml-engine, Property 4: initState produces a zeroed state
@@ -32,9 +40,9 @@ describe('Property 4: initState produces a zeroed state', () => {
         // Feature: ml-engine, Property 4: initState produces a zeroed state
         // Validates: Requirements 2.1
         fc.assert(
-            fc.property(arbAlgorithm, arbDatasetName, (algorithm, datasetName) => {
+            fc.property(arbAlgorithm, arbDatasetName, arbParams, (algorithm, datasetName, params) => {
                 const dataset = loadDataset(datasetName);
-                const state = initState(algorithm, dataset, {});
+                const state = initState(algorithm, dataset, params);
 
                 // All weights must be zero
                 expect(state.weights).toHaveLength(dataset.X[0].length);

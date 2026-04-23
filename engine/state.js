@@ -3,6 +3,7 @@
  */
 
 import { loadDataset } from './datasets.js';
+import { prependOnes } from '../port/math.js';
 
 const SUPPORTED_ALGORITHMS = ['linearRegression', 'logisticRegression', 'svm'];
 
@@ -29,6 +30,7 @@ function initState(algorithm, dataset, params) {
         iteration: 0,
         converged: false,
         dataset: ds,
+        XAug: prependOnes(ds.X),
     };
 }
 
@@ -39,8 +41,10 @@ function initState(algorithm, dataset, params) {
  */
 function prettyPrintState(state) {
     // Convert Float64Arrays to plain arrays for JSON serialization
+    // XAug is derived from dataset.X and excluded — it will be recomputed on load
+    const { XAug: _excluded, ...rest } = state;
     const serializable = {
-        ...state,
+        ...rest,
         weights: Array.from(state.weights),
         dataset: {
             ...state.dataset,

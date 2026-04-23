@@ -14,20 +14,24 @@ interface PlaybackControlsProps {
     isPlaying: boolean;
     isPaused: boolean;
     isConverged: boolean;
+    speedMs: number;
     onPlay: () => void;
     onPause: () => void;
     onStep: () => void;
     onReset: () => void;
+    onSpeedChange: (ms: number) => void;
 }
 
 export function PlaybackControls({
     engineState,
     isPlaying,
     isConverged,
+    speedMs,
     onPlay,
     onPause,
     onStep,
     onReset,
+    onSpeedChange,
 }: PlaybackControlsProps) {
     const holdTimerRef = useRef<number | null>(null);
     const intervalRef = useRef<number | null>(null);
@@ -51,9 +55,9 @@ export function PlaybackControls({
 
     const handleStepDown = useCallback(() => {
         if (isPlaying || isConverged) return;
-        
+
         isHoldingRef.current = false;
-        
+
         // Start hold timer (Wait 400ms to consider it a "hold")
         holdTimerRef.current = window.setTimeout(() => {
             isHoldingRef.current = true;
@@ -81,7 +85,7 @@ export function PlaybackControls({
 
     return (
         <div
-            className="flex items-center gap-2 p-4 bg-white rounded-lg shadow-sm border border-gray-200"
+            className="flex flex-wrap items-center gap-x-2 gap-y-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200"
             role="group"
             aria-label="Training playback controls"
         >
@@ -134,9 +138,34 @@ export function PlaybackControls({
                 <RotateCcw className="w-5 h-5" aria-hidden="true" />
             </button>
 
+            {/* Speed Slider — continuous log scale 16ms–500ms with steps/sec readout */}
+            <div className="flex items-center gap-2 ml-0 sm:ml-2" title="Playback speed">
+                <span className="text-xs text-gray-400 select-none">Slow</span>
+                <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    // Map slider 0–100 → log scale 500ms–16ms (right = faster = lower ms)
+                    value={Math.round((1 - (Math.log(speedMs) - Math.log(16)) / (Math.log(500) - Math.log(16))) * 100)}
+                    onChange={(e) => {
+                        const t = Number(e.target.value) / 100;
+                        // Invert: t=0 → 500ms, t=1 → 16ms
+                        const ms = Math.round(Math.exp(Math.log(500) + t * (Math.log(16) - Math.log(500))));
+                        onSpeedChange(ms);
+                    }}
+                    className="w-36 accent-indigo-600 cursor-pointer"
+                    aria-label="Training speed"
+                />
+                <span className="text-xs text-gray-400 select-none">Fast</span>
+                <span className="text-xs font-mono text-indigo-600 w-14 text-right select-none">
+                    {Math.round(1000 / speedMs)} steps/s
+                </span>
+            </div>
+
             {/* Weights and Bias Display */}
             {engineState?.weights && (
-                <div className="ml-auto flex items-center text-sm font-mono text-gray-700 bg-gray-50 px-3 py-1.5 rounded border border-gray-200 shadow-inner overflow-x-auto whitespace-nowrap">
+                <div className="w-full sm:w-auto sm:ml-auto flex items-center text-sm font-mono text-gray-700 bg-gray-50 px-3 py-1.5 rounded border border-gray-200 shadow-inner overflow-x-auto whitespace-nowrap">
                     <span className="mr-4">
                         <span className="text-gray-400 select-none mr-1">W:</span>
                         [{engineState.weights.map((w: number) => w.toFixed(3)).join(', ')}]

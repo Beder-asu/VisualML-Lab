@@ -26,6 +26,12 @@
         "paths": {
             "@/*": [
                 "./src/*"
+            ],
+            "../../engine/index.js": [
+                "./src/types/engine-modules.d.ts"
+            ],
+            "../../engine/boundary": [
+                "./src/types/engine-modules.d.ts"
             ]
         }
     },

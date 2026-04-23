@@ -9,8 +9,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTrainingController } from '../useTrainingController';
+import type { StepResultMessage, ErrorMessage } from '../../types/worker';
 
-// Mock the ML Engine
+// ── Mock ML Engine ────────────────────────────────────────────────────────────
 vi.mock('../../../engine/index.js', () => ({
     initState: vi.fn((algorithm: string, dataset: any, _params: any) => ({
         algorithm,
@@ -21,12 +22,6 @@ vi.mock('../../../engine/index.js', () => ({
         converged: false,
         dataset,
     })),
-    step: vi.fn((state: any, _params: any) => ({
-        ...state,
-        loss: 0.5,
-        iteration: state.iteration + 1,
-        converged: false,
-    })),
     loadDataset: vi.fn((name: string) => ({
         name,
         X: [[0.1, 0.2], [0.3, 0.4]],
@@ -35,45 +30,75 @@ vi.mock('../../../engine/index.js', () => ({
 }));
 
 // @ts-ignore
-import { initState, step, loadDataset } from '../../../engine/index.js';
+import { initState, loadDataset } from '../../../engine/index.js';
+
+// ── Mock useEngineWorker ──────────────────────────────────────────────────────
+let capturedOnResult: ((msg: StepResultMessage) => void) | null = null;
+let capturedOnError: ((msg: ErrorMessage) => void) | null = null;
+let mockRequestStep: ReturnType<typeof vi.fn>;
+
+vi.mock('../useEngineWorker', () => ({
+    useEngineWorker: vi.fn(() => ({
+        requestStep: mockRequestStep,
+        setOnResult: vi.fn((cb: (msg: StepResultMessage) => void) => {
+            capturedOnResult = cb;
+        }),
+        setOnError: vi.fn((cb: (msg: ErrorMessage) => void) => {
+            capturedOnError = cb;
+        }),
+    })),
+}));
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function simulateStepResult(state: any, generation: number, overrides: Partial<any> = {}) {
+    act(() => {
+        capturedOnResult?.({ type: 'step:result', state: { ...state, ...overrides }, generation });
+    });
+}
+
+function simulateWorkerError(message: string, generation: number) {
+    act(() => {
+        capturedOnError?.({ type: 'error', message, generation });
+    });
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useTrainingController - Error Handling', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
-        vi.useFakeTimers();
+        capturedOnResult = null;
+        capturedOnError = null;
+        mockRequestStep = vi.fn();
+
+        const { useEngineWorker } = vi.mocked(await import('../useEngineWorker'));
+        (useEngineWorker as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+            requestStep: mockRequestStep,
+            setOnResult: vi.fn((cb: (msg: StepResultMessage) => void) => { capturedOnResult = cb; }),
+            setOnError: vi.fn((cb: (msg: ErrorMessage) => void) => { capturedOnError = cb; }),
+        }));
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
-        vi.useRealTimers();
     });
 
-    // ---------------------------------------------------------------------------
-    // Error display on ML Engine errors (Requirement 12.1)
-    // ---------------------------------------------------------------------------
+    // ── Error display (Requirement 12.1) ───────────────────────────────────
 
     it('displays error message when ML Engine step() throws', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Invalid parameter value');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Invalid parameter value', 0);
 
-        const [state] = result.current;
-        expect(state.error).toBe('Invalid parameter value');
+        expect(result.current[0].error).toBe('Invalid parameter value');
     });
 
     it('displays error message when initState() throws during initialization', () => {
-        const mockInitState = vi.mocked(initState);
-        mockInitState.mockImplementationOnce(() => {
+        vi.mocked(initState).mockImplementationOnce(() => {
             throw new Error('Invalid algorithm configuration');
         });
 
@@ -81,13 +106,11 @@ describe('useTrainingController - Error Handling', () => {
             useTrainingController('invalidAlgorithm', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        const [state] = result.current;
-        expect(state.error).toBe('Invalid algorithm configuration');
+        expect(result.current[0].error).toBe('Invalid algorithm configuration');
     });
 
     it('displays error message when loadDataset() throws', () => {
-        const mockLoadDataset = vi.mocked(loadDataset);
-        mockLoadDataset.mockImplementationOnce(() => {
+        vi.mocked(loadDataset).mockImplementationOnce(() => {
             throw new Error('Dataset not found');
         });
 
@@ -95,8 +118,7 @@ describe('useTrainingController - Error Handling', () => {
             useTrainingController('linearRegression', 'invalid-dataset', { lr: 0.01, nIter: 10 })
         );
 
-        const [state] = result.current;
-        expect(state.error).toBe('Dataset not found');
+        expect(result.current[0].error).toBe('Dataset not found');
     });
 
     it('displays error message when updateParams causes initState to throw', () => {
@@ -104,18 +126,13 @@ describe('useTrainingController - Error Handling', () => {
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        const mockInitState = vi.mocked(initState);
-        mockInitState.mockImplementationOnce(() => {
+        vi.mocked(initState).mockImplementationOnce(() => {
             throw new Error('Invalid parameter combination');
         });
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.updateParams({ lr: -1 }); // Invalid learning rate
-        });
+        act(() => { result.current[1].updateParams({ lr: -1 }); });
 
-        const [state] = result.current;
-        expect(state.error).toBe('Invalid parameter combination');
+        expect(result.current[0].error).toBe('Invalid parameter combination');
     });
 
     it('displays error message when changeDataset causes loadDataset to throw', () => {
@@ -123,401 +140,203 @@ describe('useTrainingController - Error Handling', () => {
             useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
         );
 
-        const mockLoadDataset = vi.mocked(loadDataset);
-        mockLoadDataset.mockImplementationOnce(() => {
+        vi.mocked(loadDataset).mockImplementationOnce(() => {
             throw new Error('Failed to load new dataset');
         });
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.changeDataset('invalid-dataset');
-        });
+        act(() => { result.current[1].changeDataset('invalid-dataset'); });
 
-        const [state] = result.current;
-        expect(state.error).toBe('Failed to load new dataset');
+        expect(result.current[0].error).toBe('Failed to load new dataset');
     });
 
-    // ---------------------------------------------------------------------------
-    // Automatic pause on error (Requirement 12.3)
-    // ---------------------------------------------------------------------------
+    // ── Automatic pause on error (Requirement 12.3) ────────────────────────
 
     it('automatically pauses training when error occurs during step', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Training error');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
-
+        act(() => { result.current[1].play(); });
         expect(result.current[0].isPlaying).toBe(true);
 
-        // Advance timer to trigger step that will throw
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
+        simulateWorkerError('Training error', 0);
 
-        const [state] = result.current;
-        expect(state.isPlaying).toBe(false);
-        expect(state.isPaused).toBe(true);
-        expect(state.error).toBeTruthy();
+        expect(result.current[0].isPlaying).toBe(false);
+        expect(result.current[0].isPaused).toBe(true);
+        expect(result.current[0].error).toBeTruthy();
     });
 
     it('sets isPaused to true when error occurs', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Error during training');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Error during training', 0);
 
-        const [state] = result.current;
-        expect(state.isPaused).toBe(true);
-        expect(state.isPlaying).toBe(false);
+        expect(result.current[0].isPaused).toBe(true);
+        expect(result.current[0].isPlaying).toBe(false);
     });
 
     it('stops interval when error occurs during playback', () => {
-        const mockStep = vi.mocked(step);
-        let callCount = 0;
-        mockStep.mockImplementation(() => {
-            callCount++;
-            if (callCount === 2) {
-                throw new Error('Error on second call');
-            }
-            return {
-                algorithm: 'linearRegression',
-                weights: [0, 0],
-                bias: 0,
-                loss: 0.5,
-                iteration: callCount,
-                converged: false,
-                dataset: {},
-            };
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Start playing
-        act(() => {
-            const [, controls] = result.current;
-            controls.play();
-        });
+        const s = result.current[0].engineState!;
 
-        // Advance timer to trigger first step (succeeds)
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
+        act(() => { result.current[1].play(); });
+        expect(mockRequestStep).toHaveBeenCalledTimes(1);
 
-        // Advance timer to trigger second step (throws error)
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
+        // First result succeeds — self-schedules second
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
+        expect(mockRequestStep).toHaveBeenCalledTimes(2);
 
-        const [state] = result.current;
-        expect(state.error).toBeTruthy();
-        expect(state.isPlaying).toBe(false);
-
-        // Clear the error and advance timer again - should not call step anymore
-        const previousCallCount = callCount;
-        act(() => {
-            vi.advanceTimersByTime(150);
-        });
-
-        expect(callCount).toBe(previousCallCount); // No additional calls
-    });
-
-    // ---------------------------------------------------------------------------
-    // Error dismissal and state recovery (Requirements 12.4, 12.5)
-    // ---------------------------------------------------------------------------
-
-    it('clears error when clearError is called', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Test error');
-        });
-
-        const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
-        );
-
-        // Trigger error
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        // Second result is an error — loop stops
+        simulateWorkerError('Error on second call', 0);
 
         expect(result.current[0].error).toBeTruthy();
+        expect(result.current[0].isPlaying).toBe(false);
+        // No further requestStep calls after the error
+        expect(mockRequestStep).toHaveBeenCalledTimes(2);
+    });
 
-        // Clear error
-        act(() => {
-            const [, controls] = result.current;
-            controls.clearError();
-        });
+    // ── Error dismissal and state recovery (Requirements 12.4, 12.5) ───────
 
-        const [state] = result.current;
-        expect(state.error).toBeNull();
+    it('clears error when clearError is called', () => {
+        const { result } = renderHook(() =>
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
+        );
+
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Test error', 0);
+        expect(result.current[0].error).toBeTruthy();
+
+        act(() => { result.current[1].clearError(); });
+
+        expect(result.current[0].error).toBeNull();
     });
 
     it('restores last valid state when error is dismissed', () => {
-        const mockStep = vi.mocked(step);
-
-        // First call succeeds
-        mockStep.mockImplementationOnce((state: any) => ({
-            ...state,
-            loss: 0.3,
-            iteration: 1,
-            converged: false,
-        }));
-
-        // Second call throws error
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Step failed');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take first successful step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
-        const validState = result.current[0].engineState;
-        expect(validState?.iteration).toBe(1);
-        expect(validState?.loss).toBe(0.3);
+        // First step succeeds
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.3, iteration: 1, converged: false }, 0);
 
-        // Take second step that fails
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        expect(result.current[0].engineState?.iteration).toBe(1);
+
+        // Second step errors
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Step failed', 0);
 
         expect(result.current[0].error).toBeTruthy();
-
         // Engine state should still be the last valid state
         expect(result.current[0].engineState?.iteration).toBe(1);
-        expect(result.current[0].engineState?.loss).toBe(0.3);
 
-        // Clear error
-        act(() => {
-            const [, controls] = result.current;
-            controls.clearError();
-        });
+        act(() => { result.current[1].clearError(); });
 
-        // State should remain at last valid state
-        const [state] = result.current;
-        expect(state.engineState?.iteration).toBe(1);
-        expect(state.engineState?.loss).toBe(0.3);
-        expect(state.error).toBeNull();
+        expect(result.current[0].engineState?.iteration).toBe(1);
+        expect(result.current[0].error).toBeNull();
     });
 
     it('preserves last valid state across multiple errors', () => {
-        const mockStep = vi.mocked(step);
-
-        // First call succeeds
-        mockStep.mockImplementationOnce((state: any) => ({
-            ...state,
-            loss: 0.2,
-            iteration: 1,
-            converged: false,
-        }));
-
-        // Second call throws
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('First error');
-        });
-
-        // Third call throws
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Second error');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take successful step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
+        // Successful step
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.2, iteration: 1, converged: false }, 0);
         const validIteration = result.current[0].engineState?.iteration;
 
         // First error
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('First error', 0);
         expect(result.current[0].error).toBe('First error');
         expect(result.current[0].engineState?.iteration).toBe(validIteration);
 
-        // Clear first error
-        act(() => {
-            const [, controls] = result.current;
-            controls.clearError();
-        });
+        act(() => { result.current[1].clearError(); });
 
         // Second error
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
-
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Second error', 0);
         expect(result.current[0].error).toBe('Second error');
         expect(result.current[0].engineState?.iteration).toBe(validIteration);
 
-        // Clear second error
-        act(() => {
-            const [, controls] = result.current;
-            controls.clearError();
-        });
+        act(() => { result.current[1].clearError(); });
 
-        // State should still be at last valid state
         expect(result.current[0].engineState?.iteration).toBe(validIteration);
         expect(result.current[0].error).toBeNull();
     });
 
     it('updates last valid state after successful reset', () => {
-        const mockStep = vi.mocked(step);
-
-        // First step succeeds
-        mockStep.mockImplementationOnce((state: any) => ({
-            ...state,
-            loss: 0.4,
-            iteration: 1,
-            converged: false,
-        }));
-
-        // Second step throws
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Error after step');
-        });
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Take successful step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
-        // Take failing step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.4, iteration: 1, converged: false }, 0);
 
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Error after step', 0);
         expect(result.current[0].error).toBeTruthy();
 
-        // Reset should create new valid state
-        act(() => {
-            const [, controls] = result.current;
-            controls.reset();
-        });
+        act(() => { result.current[1].reset(); });
 
-        const [state] = result.current;
-        expect(state.engineState?.iteration).toBe(0);
-        expect(state.error).toBeNull();
+        expect(result.current[0].engineState?.iteration).toBe(0);
+        expect(result.current[0].error).toBeNull();
 
-        // Now if we get another error, it should restore to the reset state
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Another error');
-        });
-
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        // Error after reset should restore to reset state (iteration 0)
+        // reset() bumps generation to 1, so the new error must use generation 1
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Another error', 1);
 
         expect(result.current[0].error).toBeTruthy();
-        expect(result.current[0].engineState?.iteration).toBe(0); // Should be at reset state
+        expect(result.current[0].engineState?.iteration).toBe(0);
     });
 
     it('handles non-Error exceptions gracefully', () => {
-        const mockStep = vi.mocked(step);
-        mockStep.mockImplementationOnce(() => {
-            throw 'String error'; // Non-Error exception
-        });
-
+        // Worker always sends string messages, so this tests the worker error path
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Training step failed', 0);
 
-        const [state] = result.current;
-        expect(state.error).toBe('Training step failed');
-        expect(state.isPlaying).toBe(false);
-        expect(state.isPaused).toBe(true);
+        expect(result.current[0].error).toBe('Training step failed');
+        expect(result.current[0].isPlaying).toBe(false);
+        expect(result.current[0].isPaused).toBe(true);
     });
 
     it('clears error when successful operation occurs after error', () => {
-        const mockStep = vi.mocked(step);
-
-        // First call throws
-        mockStep.mockImplementationOnce(() => {
-            throw new Error('Initial error');
-        });
-
-        // Second call succeeds
-        mockStep.mockImplementationOnce((state: any) => ({
-            ...state,
-            loss: 0.5,
-            iteration: state.iteration + 1,
-            converged: false,
-        }));
-
         const { result } = renderHook(() =>
-            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 })
+            useTrainingController('linearRegression', 'iris-2d', { lr: 0.01, nIter: 10 }, 0)
         );
 
-        // Trigger error
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        const s = result.current[0].engineState!;
 
+        // Trigger error
+        act(() => { result.current[1].step(); });
+        simulateWorkerError('Initial error', 0);
         expect(result.current[0].error).toBeTruthy();
 
-        // Clear error
-        act(() => {
-            const [, controls] = result.current;
-            controls.clearError();
-        });
+        act(() => { result.current[1].clearError(); });
 
-        // Take successful step
-        act(() => {
-            const [, controls] = result.current;
-            controls.step();
-        });
+        // Successful step
+        act(() => { result.current[1].step(); });
+        simulateStepResult({ ...s, loss: 0.5, iteration: 1, converged: false }, 0);
 
-        const [state] = result.current;
-        expect(state.error).toBeNull();
-        expect(state.engineState?.iteration).toBeGreaterThan(0);
+        expect(result.current[0].error).toBeNull();
+        expect(result.current[0].engineState?.iteration).toBeGreaterThan(0);
     });
 });

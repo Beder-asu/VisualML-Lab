@@ -57,7 +57,7 @@ describe('Property 6: Decision boundary returns valid points', () => {
         fc.assert(
             fc.property(arbClassificationState, arbGridSize, (state, gridSize) => {
                 const res = getDecisionBoundary(state, gridSize);
-                const points = Array.isArray(res) ? res : res.boundary;
+                const points = res.boundary;
 
                 expect(Array.isArray(points)).toBe(true);
                 expect(points.length).toBe(gridSize);
@@ -67,6 +67,7 @@ describe('Property 6: Decision boundary returns valid points', () => {
                     expect(typeof pt.y).toBe('number');
                     expect(pt.x).toBeGreaterThanOrEqual(0);
                     expect(pt.x).toBeLessThanOrEqual(1);
+                    expect(isFinite(pt.y)).toBe(true);
                 }
             }),
             { numRuns: 100 }
@@ -79,7 +80,7 @@ describe('Property 6: Decision boundary returns valid points', () => {
         fc.assert(
             fc.property(arbRegressionState, arbGridSize, (state, gridSize) => {
                 const res = getDecisionBoundary(state, gridSize);
-                const points = Array.isArray(res) ? res : res.boundary;
+                const points = res.boundary;
 
                 expect(Array.isArray(points)).toBe(true);
                 expect(points.length).toBe(gridSize);
@@ -89,6 +90,7 @@ describe('Property 6: Decision boundary returns valid points', () => {
                     expect(typeof pt.y).toBe('number');
                     expect(pt.x).toBeGreaterThanOrEqual(0);
                     expect(pt.x).toBeLessThanOrEqual(1);
+                    expect(isFinite(pt.y)).toBe(true);
                 }
             }),
             { numRuns: 100 }

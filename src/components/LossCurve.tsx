@@ -210,18 +210,16 @@ const LossCurve: React.FC<LossCurveProps> = ({
                 .attr('stroke-width', 2);
         }
 
-        // Draw data points for better visibility (only if not too many)
-        if (displayData.length <= 100) {
-            g.append('g')
-                .attr('class', 'loss-points')
-                .selectAll('circle')
-                .data(displayData)
-                .join('circle')
-                .attr('cx', d => xScale(d.iteration))
-                .attr('cy', d => yScale(d.loss))
-                .attr('r', 2)
-                .attr('fill', '#4F46E5');
-        }
+        // Draw data points for better visibility
+        g.append('g')
+            .attr('class', 'loss-points')
+            .selectAll('circle')
+            .data(displayData)
+            .join('circle')
+            .attr('cx', d => xScale(d.iteration))
+            .attr('cy', d => yScale(d.loss))
+            .attr('r', displayData.length <= 100 ? 2 : 1)
+            .attr('fill', '#4F46E5');
 
     }, [lossHistory, displayData, xScale, yScale, lineGenerator, innerWidth, innerHeight]);
 

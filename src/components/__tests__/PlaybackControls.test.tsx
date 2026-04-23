@@ -14,15 +14,18 @@ describe('PlaybackControls', () => {
     const mockOnPause = vi.fn();
     const mockOnStep = vi.fn();
     const mockOnReset = vi.fn();
+    const mockOnSpeedChange = vi.fn();
 
     const defaultProps = {
         isPlaying: false,
         isPaused: false,
         isConverged: false,
+        speedMs: 100,
         onPlay: mockOnPlay,
         onPause: mockOnPause,
         onStep: mockOnStep,
         onReset: mockOnReset,
+        onSpeedChange: mockOnSpeedChange,
     };
 
     beforeEach(() => {
@@ -148,6 +151,21 @@ describe('PlaybackControls', () => {
 
         const resetButton = screen.getByLabelText('Reset training (R key)');
         expect(resetButton).not.toBeDisabled();
+    });
+
+    // Requirements 2.3: Speed control
+    it('calls onSpeedChange when the speed slider is changed', () => {
+        render(<PlaybackControls {...defaultProps} speedMs={100} />);
+
+        const slider = screen.getByLabelText('Training speed');
+        // Simulate moving slider to position 50 (mid-point)
+        fireEvent.change(slider, { target: { value: '50' } });
+
+        expect(mockOnSpeedChange).toHaveBeenCalledTimes(1);
+        // The value passed should be a positive number (ms)
+        const calledWith = mockOnSpeedChange.mock.calls[0][0];
+        expect(typeof calledWith).toBe('number');
+        expect(calledWith).toBeGreaterThan(0);
     });
 
     // Test multiple button states simultaneously

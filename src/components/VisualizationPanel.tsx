@@ -28,6 +28,8 @@ interface VisualizationPanelProps {
     onPause: () => void;
     onStep: () => void;
     onReset: () => void;
+    speedMs: number;
+    onSpeedChange: (ms: number) => void;
 }
 
 export function VisualizationPanel({
@@ -42,8 +44,10 @@ export function VisualizationPanel({
     onPause,
     onStep,
     onReset,
+    speedMs,
+    onSpeedChange,
 }: VisualizationPanelProps) {
-    const [logRegView, setLogRegView] = useState<'scatter'|'heatmap'|'sigmoid'>('scatter');
+    const [logRegView, setLogRegView] = useState<'scatter' | 'heatmap' | 'sigmoid'>('scatter');
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
@@ -63,10 +67,12 @@ export function VisualizationPanel({
                     isPlaying={isPlaying}
                     isPaused={isPaused}
                     isConverged={isConverged}
+                    speedMs={speedMs}
                     onPlay={onPlay}
                     onPause={onPause}
                     onStep={onStep}
                     onReset={onReset}
+                    onSpeedChange={onSpeedChange}
                 />
             </div>
 
@@ -79,7 +85,7 @@ export function VisualizationPanel({
                             {engineState?.algorithm === 'logisticRegression' && logRegView === 'sigmoid' ? 'Sigmoid Concept Curve' : 'Data Visualization'}
                         </h3>
                         {engineState?.algorithm === 'logisticRegression' && (
-                            <select 
+                            <select
                                 className="text-sm border border-gray-300 rounded px-2 py-1 bg-gray-50 text-gray-700"
                                 value={logRegView}
                                 onChange={(e) => setLogRegView(e.target.value as any)}
@@ -93,11 +99,11 @@ export function VisualizationPanel({
                     {engineState?.algorithm === 'logisticRegression' && logRegView === 'sigmoid' ? (
                         <SigmoidCurve state={engineState} width={400} height={400} />
                     ) : (
-                        <Canvas2D 
-                            state={engineState} 
-                            width={400} 
-                            height={400} 
-                            showGrid={true} 
+                        <Canvas2D
+                            state={engineState}
+                            width={400}
+                            height={400}
+                            showGrid={true}
                             viewMode={logRegView === 'heatmap' ? 'heatmap' : 'scatter'}
                         />
                     )}
