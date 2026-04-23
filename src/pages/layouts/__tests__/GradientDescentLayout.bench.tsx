@@ -5,7 +5,7 @@
  * Run with: npm run bench
  */
 
-import { bench, describe } from 'vitest';
+import { bench, describe, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GradientDescentLayout } from '../GradientDescentLayout';

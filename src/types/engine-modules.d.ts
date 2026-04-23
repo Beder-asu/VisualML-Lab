@@ -15,3 +15,13 @@ declare module '../../engine/boundary' {
     import type { State, BoundaryResult } from './engine';
     export function getDecisionBoundary(state: State, gridSize?: number): BoundaryResult;
 }
+
+declare module '../../engine/algorithms/decisionTree.js' {
+    export function initTreeState(dataset: any, params: any): any;
+    export function stepDecisionTree(state: any, params: any): any;
+}
+
+declare module '../../../../engine/algorithms/decisionTree.js' {
+    export function initTreeState(dataset: any, params: any): any;
+    export function stepDecisionTree(state: any, params: any): any;
+}

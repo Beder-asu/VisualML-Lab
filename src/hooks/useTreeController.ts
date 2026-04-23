@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadDataset } from '../../engine/index.js';
+// @ts-ignore
 import { initTreeState, stepDecisionTree } from '../../engine/algorithms/decisionTree.js';
 
 /**

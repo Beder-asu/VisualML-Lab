@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
+// @ts-ignore
 import { initTreeState, stepDecisionTree } from '../../../../engine/algorithms/decisionTree.js';
 import { loadDataset } from '../../../../engine/index.js';
 

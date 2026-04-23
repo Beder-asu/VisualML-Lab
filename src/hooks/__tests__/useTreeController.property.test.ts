@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { renderHook, act } from '@testing-library/react';
 import { useTreeController } from '../useTreeController';
-import type { TreeState, TreeParams } from '../useTreeController';
+import type { TreeState } from '../useTreeController';
 
 // ── Mock ML Engine ────────────────────────────────────────────────────────────
 const createMockTreeState = (depth: number, maxDepth: number): TreeState => ({
@@ -49,7 +49,7 @@ vi.mock('../../../engine/index.js', () => ({
 }));
 
 vi.mock('../../../engine/algorithms/decisionTree.js', () => ({
-    initTreeState: vi.fn((_algorithm: string, dataset: any, params: any) =>
+    initTreeState: vi.fn((_algorithm: string, _dataset: any, params: any) =>
         createMockTreeState(0, params.maxDepth)
     ),
     stepDecisionTree: vi.fn((state: TreeState, params: any) => {

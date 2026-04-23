@@ -210,8 +210,6 @@ const DecisionRegions: React.FC<DecisionRegionsProps> = ({
 
         // Only redraw regions if tree state changed
         const treeStateChanged = treeStateSignature !== lastTreeStateRef.current;
-        const highlightChanged = highlightedRegion !== lastHighlightRef.current;
-
         if (treeStateChanged) {
             // Clear offscreen canvas
             offscreenCtx.clearRect(0, 0, width, height);

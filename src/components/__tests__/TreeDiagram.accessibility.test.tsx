@@ -165,7 +165,7 @@ describe('TreeDiagram Accessibility', () => {
             const treeState = createTreeState(1);
             const onNodeHover = vi.fn();
 
-            const { container } = render(
+            render(
                 <TreeDiagram
                     treeData={treeState}
                     currentDepth={1}

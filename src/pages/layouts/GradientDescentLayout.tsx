@@ -11,8 +11,6 @@ import { useTrainingController } from '../../hooks/useTrainingController';
 import { useLayoutError, useCodePanelState } from '../../hooks/useLayoutHooks';
 import { getDefaultDataset } from '../../utils/layoutUtils';
 import { ParameterControls } from '../../components/ParameterControls';
-import { StatusIndicator } from '../../components/StatusIndicator';
-import { PlaybackControls } from '../../components/PlaybackControls';
 import { VisualizationPanel } from '../../components/VisualizationPanel';
 import { BaseLayout } from '../../components/BaseLayout';
 

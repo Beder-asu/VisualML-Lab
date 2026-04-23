@@ -32,6 +32,12 @@
             ],
             "../../engine/boundary": [
                 "./src/types/engine-modules.d.ts"
+            ],
+            "../../engine/algorithms/decisionTree.js": [
+                "./src/types/engine-modules.d.ts"
+            ],
+            "../../../../engine/algorithms/decisionTree.js": [
+                "./src/types/engine-modules.d.ts"
             ]
         }
     },

@@ -475,14 +475,6 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
         return '#8B5CF6'; // purple for internal nodes
     };
 
-    // Get node label
-    const getNodeLabel = () => {
-        if (isLeaf) {
-            return `Class ${nodeData.prediction}`;
-        }
-        return `x${nodeData.feature + 1} ≤ ${nodeData.threshold.toFixed(2)}`;
-    };
-
     // Get ARIA label for accessibility
     const getAriaLabel = () => {
         if (isLeaf) {
