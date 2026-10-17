@@ -6,6 +6,17 @@ An interactive, browser-based environment for exploring how machine-learning alg
 
 [Open the live application](https://mllab-one.vercel.app) · [Explore the EDA cheat sheet](https://mllab-one.vercel.app/eda-cheatsheet)
 
+![VisualML Lab home page](./output/playwright/home-desktop.png)
+
+![Decision Tree lesson after one training step](./output/playwright/decision-tree-step.png)
+
+<details>
+<summary>Mobile Decision Tree view</summary>
+
+![Decision Tree lesson at a 390px mobile viewport](./output/playwright/decision-tree-mobile.png)
+
+</details>
+
 ## Why this project exists
 
 Most introductory machine-learning material shows an equation, a finished chart, or a library call. That leaves the training process itself largely invisible.
@@ -80,9 +91,11 @@ Verified on 2026-10-18:
 | --- | --- |
 | Engine unit and property tests | 81 passing |
 | React component, hook, integration, accessibility, and property tests | 408 passing |
+| Browser smoke test | Passing in Chromium: open Decision Tree, change maximum depth, step once, and verify both visualizations update |
 | Production TypeScript and Vite build | Passing |
-| Continuous integration | Engine tests, UI tests, and production build on every push and pull request |
+| Continuous integration | Engine tests, UI tests, Chromium smoke test, and production build on every push and pull request |
 | Live Decision Tree interaction | Verified: stepping changes the tree depth, node count, and decision regions |
+| Responsive browser audit | Homepage and Decision Tree verified at 390px with no horizontal overflow |
 | Production dependency audit | No critical, high, or moderate advisories; four low-severity KaTeX-chain advisories remain pending a tested major upgrade |
 
 The UI test configuration isolates modules between files so component mocks cannot leak across suites. A previous wall-clock “performance” assertion was removed because it measured jsdom and supplied a one-node fixture while claiming to represent 255 nodes; it was not defensible evidence of browser performance.
@@ -92,7 +105,7 @@ The UI test configuration isolates modules between files so component mocks cann
 - The project teaches four algorithms; the staged ensemble implementations are not yet integrated.
 - Visualizations use small, embedded 2D datasets for clarity, not large-scale model training.
 - The Decision Tree controller still computes on the main thread, unlike the worker-backed gradient lessons.
-- Automated tests validate logic and interface behavior, but the repository does not yet include end-to-end browser tests.
+- The browser suite currently covers one critical Decision Tree path; it is a smoke test rather than exhaustive end-to-end coverage.
 - KaTeX requires a major-version upgrade to clear the remaining low-severity dependency advisories; that upgrade should be tested rather than forced.
 
 ## Technology
@@ -123,6 +136,7 @@ Then open `http://localhost:5173`.
 ```bash
 npm test
 npm run test:ui
+npm run test:e2e
 npm run build
 ```
 
@@ -136,6 +150,8 @@ src/hooks/                 Training, worker, keyboard, and tree controllers
 src/pages/layouts/         Algorithm-family lesson layouts
 src/data/                  Lesson and EDA reference content
 docs/                      Layout extension and API guides
+e2e/                       Playwright browser smoke tests
+output/playwright/         Verified README screenshots
 ```
 
 To add a lesson, start with [the layout extension guide](./docs/ADDING_NEW_LAYOUTS.md). The shared shell is documented in [the BaseLayout API reference](./docs/BASELAYOUT_API.md).
