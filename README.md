@@ -1,178 +1,141 @@
 # VisualML Lab
 
-Interactive Machine Learning Visualization Platform
+An interactive, browser-based environment for exploring how machine-learning algorithms learn.
 
-## Overview
+[![CI](https://github.com/Beder-asu/VisualML-Lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Beder-asu/VisualML-Lab/actions/workflows/ci.yml)
 
-VisualML Lab is an educational platform for learning machine learning algorithms through interactive visualizations. Each algorithm has a dedicated lesson page with parameter controls, real-time visualizations, and implementation code examples.
+[Open the live application](https://mllab-one.vercel.app) · [Explore the EDA cheat sheet](https://mllab-one.vercel.app/eda-cheatsheet)
 
-## Architecture
+## Why this project exists
 
-### Component Hierarchy
+Most introductory machine-learning material shows an equation, a finished chart, or a library call. That leaves the training process itself largely invisible.
 
-The application uses a composable layout architecture that separates algorithm-specific visualizations from shared page infrastructure:
+VisualML Lab turns that process into something learners can control. Users can advance an algorithm one step at a time, change its parameters, inspect the resulting loss or decision boundary, and compare the visualization with Python and JavaScript implementations.
 
-```
-App
-└── Router
-    ├── HomePage
-    └── LessonPage (Layout Dispatcher)
-        ├── GradientDescentLayout (linearRegression, logisticRegression, svm)
-        │   └── BaseLayout
-        │       ├── ConceptPanel (shared)
-        │       ├── ParameterControls (slot)
-        │       ├── Canvas2D + LossCurve (slot)
-        │       ├── CodePanel (shared)
-        │       ├── HelpModal (shared)
-        │       └── Toast (shared)
-        │
-        └── [Future Layouts: DecisionTreeLayout, RandomForestLayout, XGBoostLayout]
-```
+The project is both an educational product and an engineering experiment in keeping numerical code, interactive rendering, and explanatory content understandable as the number of lessons grows.
 
-### Layout System
+## What you can explore
 
-**BaseLayout** provides the shared shell for all algorithm lessons:
-- Concept panel with algorithm explanation
-- Code panel with Python/JavaScript examples
-- Keyboard shortcuts (Space, R, C, ?)
-- Error handling with toast notifications
-- Help modal with shortcut reference
-- Responsive grid layouts
+| Lesson | What the visualization exposes | Adjustable inputs |
+| --- | --- | --- |
+| Linear Regression | The fitted line and loss as gradient descent updates the model | Learning rate, iteration limit, dataset |
+| Logistic Regression | A classification boundary, predictions, and convergence behavior | Learning rate, iteration limit, dataset |
+| Support Vector Machine | The evolving linear decision boundary and hinge-loss training | Learning rate, regularization, iteration limit, dataset |
+| Decision Tree | Level-by-level tree growth alongside the corresponding 2D decision regions | Maximum depth, Gini or entropy criterion, minimum samples per split |
 
-**Algorithm-Specific Layouts** plug into BaseLayout:
-- Define custom parameter controls (controls slot)
-- Define custom visualizations (visualization slot)
-- Handle algorithm-specific state and interactions
+Across the lessons, users can:
 
-**Layout Dispatcher** routes algorithms to layouts:
-- Reads algorithm from URL parameter (`/lesson/:algorithm`)
-- Looks up layout component from layout map
-- Lazy loads layout for code splitting
-- Redirects to home for invalid algorithms
+- play, pause, step, and reset training;
+- tune parameters and see their effect immediately;
+- inspect loss history, model state, and decision regions;
+- use keyboard shortcuts for repeated experiments;
+- read the concept explanation and switch between Python and JavaScript examples; and
+- explore a searchable EDA reference covering 14 visualization types and when to avoid each one.
 
-### Adding New Algorithms
+All datasets and computations run in the browser. The deployed application does not require an API or user account.
 
-To add a new algorithm lesson:
+## Engineering approach
 
-1. **Create a layout component** in `src/pages/layouts/`
-2. **Register in layout map** in `src/pages/LessonPage.tsx`
-3. **Add concept content** in `src/data/concepts.ts`
-4. **Add code examples** in `src/utils/codeContent.ts`
-5. **Update utilities** in `src/utils/layoutUtils.ts`
-
-See [Developer Guide: Adding New Layouts](./docs/ADDING_NEW_LAYOUTS.md) for detailed instructions.
-
-## Project Structure
-
-```
-├── src/
-│   ├── components/     # Shared React components
-│   │   ├── BaseLayout.tsx          # Base layout shell
-│   │   ├── ConceptPanel.tsx        # Algorithm explanation
-│   │   ├── CodePanel.tsx           # Code examples
-│   │   ├── Canvas2D.tsx            # 2D visualization canvas
-│   │   ├── LossCurve.tsx           # Loss curve chart
-│   │   ├── ParameterControls.tsx   # Parameter sliders
-│   │   └── ...
-│   ├── pages/          # Page components
-│   │   ├── HomePage.tsx            # Landing page
-│   │   ├── LessonPage.tsx          # Layout dispatcher
-│   │   └── layouts/                # Algorithm-specific layouts
-│   │       └── GradientDescentLayout.tsx
-│   ├── hooks/          # Custom React hooks
-│   │   ├── useLayoutHooks.ts       # Layout-specific hooks
-│   │   ├── useTrainingController.ts # Training state management
-│   │   └── ...
-│   ├── utils/          # Utility functions
-│   │   ├── layoutUtils.ts          # Layout utilities
-│   │   ├── codeContent.ts          # Code examples
-│   │   └── ...
-│   ├── types/          # TypeScript type definitions
-│   ├── data/           # Static data (concepts, datasets)
-│   ├── test/           # Test setup and utilities
-│   ├── App.tsx         # Main App component with routing
-│   ├── main.tsx        # Application entry point
-│   └── index.css       # Global styles with Tailwind
-├── engine/             # ML Engine (JavaScript implementations)
-│   ├── algorithms/     # Algorithm implementations
-│   │   ├── linearRegression.js
-│   │   ├── logisticRegression.js
-│   │   └── svm.js
-│   ├── datasets.js     # Dataset generation
-│   ├── state.js        # Training state management
-│   └── worker.js       # Web Worker for background training
-├── docs/               # Documentation
-│   ├── ADDING_NEW_LAYOUTS.md  # Developer guide
-│   └── BASELAYOUT_API.md      # BaseLayout API reference
-└── dist/               # Build output
+```mermaid
+flowchart LR
+    Route[Lesson route] --> Dispatcher[Lazy layout dispatcher]
+    Dispatcher --> Gradient[Gradient-descent layout]
+    Dispatcher --> Tree[Decision-tree layout]
+    Gradient --> Controller[Training controller]
+    Controller <--> Worker[Web Worker]
+    Worker --> Engine[ML engine public API]
+    Tree --> TreeController[Tree controller]
+    TreeController --> TreeEngine[Decision-tree engine]
+    Engine --> Views[Loss and boundary views]
+    TreeEngine --> TreeViews[Tree and region views]
+    Gradient --> Base[Shared lesson shell]
+    Tree --> Base
 ```
 
-## Tech Stack
+The implementation separates four concerns:
 
-- **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS v4
-- **Routing**: React Router v7
-- **Visualization**: D3.js v7
-- **Icons**: Lucide React
-- **Code Highlighting**: React Syntax Highlighter
-- **Testing**: Vitest + React Testing Library + fast-check
-- **Type Checking**: TypeScript 5
+1. **Numerical engine** — algorithm steps, datasets, validation, serialization, and decision-boundary calculations live outside React.
+2. **Execution control** — iterative regression and SVM steps run through a Web Worker so repeated computation does not block the interface. Decision Tree currently uses a dedicated step-based controller on the main thread.
+3. **Lesson layouts** — a lazy dispatcher selects either the shared gradient-descent layout or the tree-specific dual visualization.
+4. **Presentation** — `BaseLayout` owns the common concept panel, controls, code panel, keyboard behavior, help, and error states.
 
-## Available Scripts
+This boundary is intentional: UI code consumes the integrated engine rather than importing experimental implementations from `port/`. Random Forest and XGBoost files in that directory are staging work, not shipped lessons.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm test` - Run engine tests
-- `npm run test:ui` - Run UI tests
-- `npm run test:watch` - Run engine tests in watch mode
-- `npm run test:ui:watch` - Run UI tests in watch mode
+## Design decisions worth noting
 
-## Development
+- **Step-based execution:** every lesson supports deliberate inspection instead of only showing a final fitted model.
+- **Worker isolation:** gradient-based training crosses a serializable worker boundary, keeping rendering responsive.
+- **Different models, different views:** Decision Tree has its own layout because a hierarchy and rectangular regions cannot be explained well by reusing a loss-chart layout.
+- **Deterministic embedded datasets:** lessons are repeatable and require no runtime data download.
+- **Progressive loading:** lesson families and the EDA reference are split from the initial bundle.
+- **Defensive deployment headers:** Vercel applies a Content Security Policy, frame denial, MIME sniffing protection, and a strict-origin referrer policy.
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+Additional rationale is recorded in [ARCHITECTURE_DECISIONS.md](./ARCHITECTURE_DECISIONS.md).
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+## Verification
 
-3. Open http://localhost:5173 in your browser
+Verified on 2026-10-18:
 
-### Development Workflow
+| Check | Result |
+| --- | --- |
+| Engine unit and property tests | 81 passing |
+| React component, hook, integration, accessibility, and property tests | 408 passing |
+| Production TypeScript and Vite build | Passing |
+| Continuous integration | Engine tests, UI tests, and production build on every push and pull request |
+| Live Decision Tree interaction | Verified: stepping changes the tree depth, node count, and decision regions |
+| Production dependency audit | No critical, high, or moderate advisories; four low-severity KaTeX-chain advisories remain pending a tested major upgrade |
 
-- **Adding a new algorithm**: See [docs/ADDING_NEW_LAYOUTS.md](./docs/ADDING_NEW_LAYOUTS.md)
-- **BaseLayout API**: See [docs/BASELAYOUT_API.md](./docs/BASELAYOUT_API.md)
-- **Shared hooks**: See [src/hooks/useLayoutHooks.ts](./src/hooks/useLayoutHooks.ts)
-- **Layout utilities**: See [src/utils/layoutUtils.ts](./src/utils/layoutUtils.ts)
+The UI test configuration isolates modules between files so component mocks cannot leak across suites. A previous wall-clock “performance” assertion was removed because it measured jsdom and supplied a one-node fixture while claiming to represent 255 nodes; it was not defensible evidence of browser performance.
 
-## Testing
+## Current limits
 
-The project uses two separate test configurations:
+- The project teaches four algorithms; the staged ensemble implementations are not yet integrated.
+- Visualizations use small, embedded 2D datasets for clarity, not large-scale model training.
+- The Decision Tree controller still computes on the main thread, unlike the worker-backed gradient lessons.
+- Automated tests validate logic and interface behavior, but the repository does not yet include end-to-end browser tests.
+- KaTeX requires a major-version upgrade to clear the remaining low-severity dependency advisories; that upgrade should be tested rather than forced.
 
-- **Engine tests**: `vitest.config.js` - Node environment for ML Engine tests
-- **UI tests**: `vitest.config.ui.ts` - jsdom environment for React component tests
+## Technology
 
-Run all tests:
+- React 19 and TypeScript
+- Vite and Tailwind CSS
+- D3 hierarchy utilities and SVG/canvas rendering
+- Web Workers
+- React Router
+- React Markdown and KaTeX
+- Vitest, React Testing Library, and fast-check
+
+## Run locally
+
+Prerequisites: a current Node.js release and npm.
+
 ```bash
-npm test          # Engine tests
-npm run test:ui   # UI tests
+git clone https://github.com/Beder-asu/VisualML-Lab.git
+cd VisualML-Lab
+npm install
+npm run dev
 ```
 
-## Design System
+Then open `http://localhost:5173`.
 
-The application uses a custom Tailwind theme with the following colors:
+## Validate changes
 
-- **Primary**: #4F46E5 (Indigo)
-- **Secondary**: #14B8A6 (Teal)
-- **Background**: #F9FAFB (Light gray)
-- **Error**: #F97316 (Orange)
-- **Success**: #22C55E (Green)
+```bash
+npm test
+npm run test:ui
+npm run build
+```
 
-Fonts:
-- **Sans**: Inter
-- **Mono**: JetBrains Mono
+## Repository map
+
+```text
+engine/                    Integrated ML engine and worker
+port/                      Experimental algorithm ports; not product features
+src/components/            Shared controls and visualizations
+src/hooks/                 Training, worker, keyboard, and tree controllers
+src/pages/layouts/         Algorithm-family lesson layouts
+src/data/                  Lesson and EDA reference content
+docs/                      Layout extension and API guides
+```
+
+To add a lesson, start with [the layout extension guide](./docs/ADDING_NEW_LAYOUTS.md). The shared shell is documented in [the BaseLayout API reference](./docs/BASELAYOUT_API.md).

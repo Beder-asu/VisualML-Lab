@@ -21,6 +21,14 @@ vi.mock('../layouts/GradientDescentLayout', () => ({
     ),
 }));
 
+vi.mock('../layouts/DecisionTreeLayout', () => ({
+    DecisionTreeLayout: ({ algorithm }: { algorithm: string }) => (
+        <div data-testid="decision-tree-layout">
+            DecisionTreeLayout: {algorithm}
+        </div>
+    ),
+}));
+
 // Mock the LayoutErrorBoundary to simplify testing
 vi.mock('../../components/LayoutErrorBoundary', () => ({
     LayoutErrorBoundary: ({ children }: { children: React.ReactNode }) => (
@@ -81,7 +89,7 @@ describe('Layout System - Property-Based Tests', () => {
          */
         it('should render layout component without error for any valid algorithm', async () => {
             // Valid algorithms that exist in the layout map
-            const validAlgorithms = ['linearRegression', 'logisticRegression', 'svm'];
+            const validAlgorithms = ['linearRegression', 'logisticRegression', 'svm', 'decisionTree'];
             const arbValidAlgorithm = fc.constantFrom(...validAlgorithms);
 
             await fc.assert(
@@ -102,8 +110,13 @@ describe('Layout System - Property-Based Tests', () => {
                         }, { timeout: 3000 });
 
                         // Assert layout component renders without error
-                        expect(screen.getByTestId('gradient-descent-layout')).toBeInTheDocument();
-                        expect(screen.getByText(`GradientDescentLayout: ${algorithm}`)).toBeInTheDocument();
+                        if (algorithm === 'decisionTree') {
+                            expect(screen.getByTestId('decision-tree-layout')).toBeInTheDocument();
+                            expect(screen.getByText(`DecisionTreeLayout: ${algorithm}`)).toBeInTheDocument();
+                        } else {
+                            expect(screen.getByTestId('gradient-descent-layout')).toBeInTheDocument();
+                            expect(screen.getByText(`GradientDescentLayout: ${algorithm}`)).toBeInTheDocument();
+                        }
 
                         unmount();
                     }
@@ -410,7 +423,7 @@ describe('Layout System - Property-Based Tests', () => {
          * Validates: Requirements 3.1, 3.3
          */
         it('should have layout mapping for all valid algorithms', async () => {
-            const validAlgorithms = ['linearRegression', 'logisticRegression', 'svm'];
+            const validAlgorithms = ['linearRegression', 'logisticRegression', 'svm', 'decisionTree'];
 
             for (const algorithm of validAlgorithms) {
                 const { unmount } = render(
@@ -431,14 +444,18 @@ describe('Layout System - Property-Based Tests', () => {
                 expect(screen.queryByTestId('home-page')).not.toBeInTheDocument();
 
                 // Should render the layout
-                expect(screen.getByTestId('gradient-descent-layout')).toBeInTheDocument();
+                if (algorithm === 'decisionTree') {
+                    expect(screen.getByTestId('decision-tree-layout')).toBeInTheDocument();
+                } else {
+                    expect(screen.getByTestId('gradient-descent-layout')).toBeInTheDocument();
+                }
 
                 unmount();
             }
         });
 
         it('should redirect to home for invalid algorithms', async () => {
-            const invalidAlgorithms = ['invalidAlgorithm', 'decisionTree', 'randomForest', 'xgboost'];
+            const invalidAlgorithms = ['invalidAlgorithm', 'randomForest', 'xgboost'];
 
             for (const algorithm of invalidAlgorithms) {
                 const { unmount } = render(
@@ -450,8 +467,10 @@ describe('Layout System - Property-Based Tests', () => {
                     </MemoryRouter>
                 );
 
-                // Should redirect to home
-                expect(screen.getByTestId('home-page')).toBeInTheDocument();
+                // Navigation is scheduled by React Router; wait for the home route.
+                await waitFor(() => {
+                    expect(screen.getByTestId('home-page')).toBeInTheDocument();
+                });
 
                 // Should not render layout
                 expect(screen.queryByTestId('gradient-descent-layout')).not.toBeInTheDocument();

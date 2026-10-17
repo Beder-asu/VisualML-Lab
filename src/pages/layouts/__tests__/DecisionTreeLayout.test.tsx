@@ -53,6 +53,9 @@ vi.mock('../../../components/TreeDiagram', () => ({
 vi.mock('../../../components/DecisionRegions', () => ({
     default: () => <div data-testid="decision-regions">Decision Regions</div>,
 }));
+vi.mock('../../../components/ResponsiveWrapper', () => ({
+    ResponsiveWrapper: ({ children }: any) => children({ width: 800, height: 600 }),
+}));
 
 describe('DecisionTreeLayout', () => {
     const mockTreeState = {

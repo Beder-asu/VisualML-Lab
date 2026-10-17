@@ -7,7 +7,9 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'jsdom',
-        isolate: false,
+        // Keep module mocks local to each test file. Several layout suites mock
+        // the same shared components with different contracts.
+        isolate: true,
         testTimeout: 15000,
         setupFiles: './src/test/setup.ts',
         include: ['src/**/*.{test,spec}.{ts,tsx}'],

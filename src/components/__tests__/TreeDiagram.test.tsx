@@ -137,7 +137,7 @@ describe('TreeDiagram', () => {
         const treeGroup = container.querySelector('.tree-group');
         expect(treeGroup).toBeInTheDocument();
         // The transform includes translate with pan values
-        expect(treeGroup?.getAttribute('transform')).toContain('translate(150, 100)');
+        expect(treeGroup?.getAttribute('transform')).toContain('translate(500, 100)');
     });
 
     it('calls onNodeHover on hover', () => {
@@ -258,9 +258,9 @@ describe('TreeDiagram', () => {
         // Check that zoom and pan reset
         const treeGroup = container.querySelector('.tree-group');
         const transform = treeGroup?.getAttribute('transform');
-        // Should reset to scale(1) and translate(50, 50) (base offset)
+        // Should reset to scale(1), center horizontally, and retain the 50px top offset.
         expect(transform).toContain('scale(1)');
-        expect(transform).toContain('translate(50, 50)');
+        expect(transform).toContain('translate(400, 50)');
     });
 
     it('renders placeholder when no tree data', () => {

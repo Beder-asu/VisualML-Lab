@@ -59,7 +59,11 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
     const [localPan, setLocalPan] = useState(pan);
     const [localZoom, setLocalZoom] = useState(zoom);
     const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-    const [userInteracted, setUserInteracted] = useState(false);
+    // Non-default viewport props are an explicit caller choice and must not be
+    // replaced by the initial auto-fit pass.
+    const [userInteracted, setUserInteracted] = useState(
+        () => zoom !== 1 || pan.x !== 0 || pan.y !== 0
+    );
 
     // Sync local state with props
     useEffect(() => {
