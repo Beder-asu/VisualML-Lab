@@ -44,6 +44,7 @@ export interface State {
     algorithm: 'linearRegression' | 'logisticRegression' | 'svm';
     weights: number[];
     bias: number;
+    /** Display loss evaluated at these returned weights and bias. */
     loss: number | null;
     iteration: number;
     converged: boolean;

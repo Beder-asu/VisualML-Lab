@@ -53,20 +53,19 @@ function stepLogisticRegression(state, params) {
     // residual = yHat - y
     const residual = sub(yHat, Float64Array.from(y));
 
+    // Update using the current gradient, then report loss at the new weights.
+    const dw = scale(matTvec(newX, residual), 1 / m);
+    const newW = sub(w, scale(dw, lr));
+    const updatedYHat = sigmoid(matvec(newX, newW));
+
     // Binary cross-entropy loss: BCE = -(1/m) * sum(y*log(yHat) + (1-y)*log(1-yHat))
     let bce = 0;
     const eps = 1e-15; // clip to avoid log(0)
     for (let i = 0; i < m; i++) {
-        const p = Math.min(Math.max(yHat[i], eps), 1 - eps);
+        const p = Math.min(Math.max(updatedYHat[i], eps), 1 - eps);
         bce += y[i] * Math.log(p) + (1 - y[i]) * Math.log(1 - p);
     }
     bce = -bce / m;
-
-    // dw = (1/m) * newX.T @ residual
-    const dw = scale(matTvec(newX, residual), 1 / m);
-
-    // w -= lr * dw
-    const newW = sub(w, scale(dw, lr));
 
     return {
         ...state,

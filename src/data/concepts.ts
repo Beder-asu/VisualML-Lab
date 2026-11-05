@@ -18,10 +18,13 @@ export const conceptData: Record<string, ConceptContent> = {
 $\\text{MSE} = \\frac{1}{m}\\|\\tilde{X}\\mathbf{w} - \\mathbf{y}\\|^2$
 
 **Gradient:**
-$\\nabla_w = \\frac{1}{m} \\tilde{X}^T (\\tilde{X}\\mathbf{w} - \\mathbf{y})$
+We optimize half-MSE, $J = \\frac{1}{2m}\\|\\tilde{X}\\mathbf{w} - \\mathbf{y}\\|^2$, so the gradient is:
+$\\nabla_w J = \\frac{1}{m} \\tilde{X}^T (\\tilde{X}\\mathbf{w} - \\mathbf{y})$
+
+The chart reports full MSE (twice $J$), evaluated after each weight update.
 
 **Update Rule:**
-$\\mathbf{w} \\leftarrow \\mathbf{w} - \\alpha \\cdot \\nabla_w$
+$\\mathbf{w} \\leftarrow \\mathbf{w} - \\alpha \\cdot \\nabla_w J$
 
 **Prediction:** $\\hat{y} = \\tilde{X} \\mathbf{w}$
 `

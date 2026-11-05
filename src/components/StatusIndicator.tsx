@@ -39,7 +39,8 @@ export function StatusIndicator({
 
     if (isConverged) {
         // Requirements 9.3, 12.4: Display "Converged" or "Complete" message with success indicator
-        const completeText = currentDepth !== undefined ? 'Complete' : 'Converged';
+        // Reaching a configured limit establishes completion, not convergence.
+        const completeText = 'Complete';
         statusText = completeText;
         statusColor = 'text-green-600 bg-green-50 border-green-200';
         Icon = CheckCircle;
