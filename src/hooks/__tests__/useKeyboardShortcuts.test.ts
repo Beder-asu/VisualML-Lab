@@ -10,6 +10,29 @@ import { renderHook } from '@testing-library/react';
 import { useKeyboardShortcuts } from '../useKeyboardShortcuts';
 
 describe('useKeyboardShortcuts', () => {
+    it('leaves already-handled navigation keys to the focused component', () => {
+        const onStep = vi.fn();
+        renderHook(() => useKeyboardShortcuts({
+            onStep, onPlayPause: vi.fn(), onReset: vi.fn(), onToggleCodePanel: vi.fn(),
+        }));
+        const event = new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true });
+        event.preventDefault();
+        window.dispatchEvent(event);
+        expect(onStep).not.toHaveBeenCalled();
+    });
+
+    it.each(['button', 'select'])('preserves native Space behavior on a %s', tag => {
+        const onPlayPause = vi.fn();
+        renderHook(() => useKeyboardShortcuts({
+            onStep: vi.fn(), onPlayPause, onReset: vi.fn(), onToggleCodePanel: vi.fn(),
+        }));
+        const control = document.createElement(tag);
+        document.body.appendChild(control);
+        try {
+            control.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+            expect(onPlayPause).not.toHaveBeenCalled();
+        } finally { control.remove(); }
+    });
     let mockOnPlayPause: () => void;
     let mockOnStep: () => void;
     let mockOnReset: () => void;
