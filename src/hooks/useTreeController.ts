@@ -204,6 +204,11 @@ export function useTreeController(
         }, speedMsRef.current);
     }, [clearPlayback]);
 
+    // Replace the active interval when speed changes, preserving the tree.
+    useEffect(() => {
+        if (state.isBuilding) play();
+    }, [speedMs, state.isBuilding, play]);
+
     /**
      * Pause tree building
      * Requirements: 1.2
