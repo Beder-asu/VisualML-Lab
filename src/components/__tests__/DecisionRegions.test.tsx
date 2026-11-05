@@ -113,6 +113,31 @@ describe('DecisionRegions', () => {
         });
     });
 
+    it('resizes and redraws the offscreen cache while the tree is unchanged', () => {
+        const treeData = createTreeState(1);
+        const dataset = createDataset();
+        const props = { treeData, dataset, highlightedRegion: null, onRegionHover: vi.fn() };
+        const { rerender } = render(<DecisionRegions {...props} width={400} height={400} />);
+        const contexts = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.contexts as HTMLCanvasElement[];
+        const cached = contexts.find(canvas => !canvas.isConnected)!;
+        expect(cached.width).toBe(400);
+        const fills = mockContext.fillRect.mock.calls.length;
+        rerender(<DecisionRegions {...props} width={800} height={600} />);
+        expect(cached.width).toBe(800);
+        expect(cached.height).toBe(600);
+        expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(fills);
+    });
+
+    it('redraws changed split geometry even when depth, counts, and node IDs are identical', () => {
+        const treeData = createTreeState(1);
+        const props = { dataset: createDataset(), highlightedRegion: null, onRegionHover: vi.fn() };
+        const { rerender } = render(<DecisionRegions {...props} treeData={treeData} />);
+        const fills = mockContext.fillRect.mock.calls.length;
+        const changedTree = { ...treeData, root: { ...treeData.root, threshold: 0.7 } };
+        rerender(<DecisionRegions {...props} treeData={changedTree} />);
+        expect(mockContext.fillRect.mock.calls.length).toBeGreaterThan(fills);
+    });
+
     it('renders decision regions', () => {
         const treeState = createTreeState(1);
         const dataset = createDataset();
