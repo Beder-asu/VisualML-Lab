@@ -63,14 +63,13 @@ export function useTrainingController(
     const lastValidStateRef = useRef<State | null>(state.engineState);
     // Mirror of engineState in a ref for synchronous access
     const engineStateRef = useRef<State | null>(state.engineState);
-    // Mirror of isPlaying for synchronous access in callbacks (avoids stale closure)
-    const isPlayingRef = useRef<boolean>(state.isPlaying);
     // Generation counter — incremented on reset/updateParams/changeDataset to invalidate in-flight worker responses
     const generationRef = useRef<number>(0);
     // Tracks whether a step request is in-flight to prevent concurrent requests
     const pendingStepRef = useRef<boolean>(false);
-    // Flag for single-step mode — prevents self-scheduling after one result
-    const isSingleStepRef = useRef<boolean>(false);
+    // Accepted manual steps wait for the previous result, never reuse its input.
+    const queuedStepsRef = useRef(0);
+    const playbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Web Worker hook
     const { requestStep, setOnResult, setOnError } = useEngineWorker();
@@ -85,28 +84,28 @@ export function useTrainingController(
         speedMsRef.current = speedMs;
     }, [speedMs]);
 
-    // Keep isPlayingRef in sync with state.isPlaying
-    useEffect(() => {
-        isPlayingRef.current = state.isPlaying;
-    }, [state.isPlaying]);
-
     /**
      * Clear any active playback loop
      */
     const clearPlayback = useCallback(() => {
         isLoopRunningRef.current = false;
+        queuedStepsRef.current = 0;
+        if (playbackTimerRef.current !== null) {
+            clearTimeout(playbackTimerRef.current);
+            playbackTimerRef.current = null;
+        }
     }, []);
 
     /**
      * Post a step request to the worker.
-     * pendingStepRef guard only applies during continuous play — fast-forward
-     * and single-step bypass it so they are never silently dropped.
-     * Speed throttling is handled by the PlaybackControls interval, not here.
+     * Serialize all requests. Continuous playback is throttled after each result;
+     * manual steps are drained immediately from the latest returned state.
      */
-    const sendStep = useCallback((options: { ignorePending?: boolean } = {}) => {
+    const sendStep = useCallback(() => {
         const currentEngineState = engineStateRef.current;
         if (!currentEngineState) return;
-        if (pendingStepRef.current && !options.ignorePending) return;
+        if (pendingStepRef.current || currentEngineState.converged ||
+            currentEngineState.iteration >= paramsRef.current.nIter) return;
 
         pendingStepRef.current = true;
         requestStep(currentEngineState, paramsRef.current, generationRef.current);
@@ -126,7 +125,7 @@ export function useTrainingController(
 
         // Check hard iteration ceiling
         if (newEngineState.iteration >= MAX_SAFE_ITERATIONS) {
-            isLoopRunningRef.current = false;
+            clearPlayback();
             engineStateRef.current = newEngineState;
             lastValidStateRef.current = newEngineState;
             setState(prevState => ({
@@ -146,7 +145,7 @@ export function useTrainingController(
         lastValidStateRef.current = newEngineState;
 
         if (converged) {
-            isLoopRunningRef.current = false;
+            clearPlayback();
         }
 
         // Update React state with ring buffer for loss history
@@ -169,11 +168,13 @@ export function useTrainingController(
             };
         });
 
-        // Self-scheduling: continue the loop if still playing and not single-step
-        // Apply speed throttle here (not in sendStep) so single-step/fast-forward remain instant
-        if (!converged && isLoopRunningRef.current && !isSingleStepRef.current) {
+        if (!converged && queuedStepsRef.current > 0) {
+            queuedStepsRef.current -= 1;
+            sendStep();
+        } else if (!converged && isLoopRunningRef.current) {
             if (speedMsRef.current > 0) {
-                setTimeout(() => {
+                playbackTimerRef.current = setTimeout(() => {
+                    playbackTimerRef.current = null;
                     if (isLoopRunningRef.current) sendStep();
                 }, speedMsRef.current);
             } else {
@@ -181,9 +182,7 @@ export function useTrainingController(
             }
         }
 
-        // Reset single-step flag after use
-        isSingleStepRef.current = false;
-    }, [sendStep]);
+    }, [sendStep, clearPlayback]);
 
     /**
      * Handle an error from the worker.
@@ -194,7 +193,7 @@ export function useTrainingController(
         if (error.generation !== generationRef.current) return;
 
         pendingStepRef.current = false;
-        isLoopRunningRef.current = false;
+        clearPlayback();
 
         setState(prevState => ({
             ...prevState,
@@ -202,7 +201,7 @@ export function useTrainingController(
             isPaused: true,
             error: error.message,
         }));
-    }, []);
+    }, [clearPlayback]);
 
     // Wire worker callbacks
     useEffect(() => {
@@ -218,6 +217,8 @@ export function useTrainingController(
      * Requirements: 1.1
      */
     const play = useCallback(() => {
+        const current = engineStateRef.current;
+        if (!current || current.converged || current.iteration >= paramsRef.current.nIter) return;
         setState(prevState => {
             if (prevState.isConverged || !prevState.engineState) {
                 return prevState;
@@ -232,7 +233,6 @@ export function useTrainingController(
 
         clearPlayback();
         isLoopRunningRef.current = true;
-        isSingleStepRef.current = false;
         sendStep();
     }, [clearPlayback, sendStep]);
 
@@ -254,9 +254,14 @@ export function useTrainingController(
      * Requirements: 1.3
      */
     const stepOnce = useCallback(() => {
-        isSingleStepRef.current = true;
-        // ignorePending so fast-forward interval calls are never silently dropped
-        sendStep({ ignorePending: true });
+        const current = engineStateRef.current;
+        if (isLoopRunningRef.current || !current || current.converged ||
+            current.iteration >= paramsRef.current.nIter) return;
+        if (pendingStepRef.current) {
+            queuedStepsRef.current += 1;
+        } else {
+            sendStep();
+        }
     }, [sendStep]);
 
     /**
@@ -318,9 +323,7 @@ export function useTrainingController(
      * Requirements: 2.1, 2.2, 2.3, 2.5
      */
     const updateParams = useCallback((newParams: Partial<Params>) => {
-        if (isPlayingRef.current) {
-            clearPlayback();
-        }
+        clearPlayback();
 
         generationRef.current += 1;
         pendingStepRef.current = false;
@@ -359,9 +362,7 @@ export function useTrainingController(
      * Requirements: 7.2, 7.4
      */
     const changeDataset = useCallback((datasetName: string) => {
-        if (isPlayingRef.current) {
-            clearPlayback();
-        }
+        clearPlayback();
 
         generationRef.current += 1;
         pendingStepRef.current = false;

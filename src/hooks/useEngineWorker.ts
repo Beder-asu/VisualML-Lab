@@ -24,13 +24,25 @@ export function useEngineWorker(): UseEngineWorkerResult {
     const workerRef = useRef<Worker | null>(null);
     const onResultRef = useRef<StepResultCallback | null>(null);
     const onErrorRef = useRef<ErrorCallback | null>(null);
+    const generationRef = useRef(0);
 
-    useEffect(() => {
-        // Instantiate the worker once using Vite's worker syntax
+    const createWorker = useCallback(() => {
         const worker = new Worker(
             new URL('../../engine/worker.js', import.meta.url),
             { type: 'module' }
         );
+
+        const fail = (message: string) => {
+            if (workerRef.current !== worker) return;
+            worker.terminate();
+            workerRef.current = null;
+            onErrorRef.current?.({ type: 'error', message, generation: generationRef.current });
+        };
+        worker.onerror = (event) => {
+            event.preventDefault();
+            fail(event.message || 'Training worker failed. Reset or retry training.');
+        };
+        worker.onmessageerror = () => fail('Training worker returned unreadable data. Reset or retry training.');
 
         worker.onmessage = (event: MessageEvent<WorkerOutbound>) => {
             const msg = event.data;
@@ -42,16 +54,32 @@ export function useEngineWorker(): UseEngineWorkerResult {
         };
 
         workerRef.current = worker;
+        return worker;
+    }, []);
 
+    useEffect(() => {
+        // If startup fails, requestStep retries and reports it once callbacks exist.
+        try { createWorker(); } catch { /* Report on the first request. */ }
         return () => {
-            worker.terminate();
+            workerRef.current?.terminate();
             workerRef.current = null;
         };
-    }, []);
+    }, [createWorker]);
 
     const requestStep = useCallback((state: State, params: Params, generation: number) => {
-        workerRef.current?.postMessage({ type: 'step', state, params, generation });
-    }, []);
+        generationRef.current = generation;
+        try {
+            const worker = workerRef.current ?? createWorker();
+            worker.postMessage({ type: 'step', state, params, generation });
+        } catch (error) {
+            workerRef.current?.terminate();
+            workerRef.current = null;
+            onErrorRef.current?.({
+                type: 'error', generation,
+                message: error instanceof Error ? error.message : 'Unable to start training worker.',
+            });
+        }
+    }, [createWorker]);
 
     const setOnResult = useCallback((cb: StepResultCallback) => {
         onResultRef.current = cb;

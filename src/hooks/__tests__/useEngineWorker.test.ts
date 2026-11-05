@@ -16,6 +16,8 @@ import type { StepResultMessage, ErrorMessage } from '../../types/worker';
  *  simulate incoming messages from the worker side. */
 class MockWorker {
     onmessage: ((event: MessageEvent) => void) | null = null;
+    onerror: ((event: ErrorEvent) => void) | null = null;
+    onmessageerror: (() => void) | null = null;
     terminate = vi.fn();
     postMessage = vi.fn();
 
@@ -124,5 +126,33 @@ describe('useEngineWorker', () => {
         unmount();
 
         expect(mockWorkerInstance.terminate).toHaveBeenCalledOnce();
+    });
+
+    it.each(['error', 'messageerror'] as const)('reports native %s with the current generation and permits retry', event => {
+        const { result } = renderHook(() => useEngineWorker());
+        const onError = vi.fn();
+        act(() => {
+            result.current.setOnError(onError);
+            result.current.requestStep(fakeState, fakeParams, 7);
+        });
+        act(() => {
+            if (event === 'error') mockWorkerInstance.onerror?.(new ErrorEvent('error', { message: 'Worker crashed' }));
+            else mockWorkerInstance.onmessageerror?.();
+        });
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', generation: 7 }));
+        expect(mockWorkerInstance.terminate).toHaveBeenCalledOnce();
+        act(() => result.current.requestStep(fakeState, fakeParams, 8));
+        expect(mockWorkerInstance.postMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports synchronous message-post failures instead of leaving a request pending', () => {
+        const { result } = renderHook(() => useEngineWorker());
+        const onError = vi.fn();
+        mockWorkerInstance.postMessage.mockImplementationOnce(() => { throw new Error('Clone failed'); });
+        act(() => {
+            result.current.setOnError(onError);
+            result.current.requestStep(fakeState, fakeParams, 2);
+        });
+        expect(onError).toHaveBeenCalledWith({ type: 'error', generation: 2, message: 'Clone failed' });
     });
 });
