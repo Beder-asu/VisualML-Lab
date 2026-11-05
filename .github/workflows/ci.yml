@@ -27,16 +27,13 @@ jobs:
         run: npm ci
 
       - name: Run engine tests
-        run: npm test
+        run: npm test -- --maxWorkers=2
 
       - name: Run UI tests
-        run: npm run test:ui
+        run: npm run test:ui -- --maxWorkers=2
 
       - name: Install browser for smoke test
         run: npx playwright install --with-deps chromium
 
       - name: Run browser smoke test
         run: npm run test:e2e
-
-      - name: Build production bundle
-        run: npm run build

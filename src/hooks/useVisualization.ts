@@ -29,13 +29,13 @@ export function useVisualization(state: State | null): UseVisualizationResult {
             displayedRef.current = next;
             setGeometry(next);
         };
-        if (!algorithm || bias === undefined || weightsKey === undefined) {
+        if (!state) {
             display(emptyGeometry());
             setIsAnimating(false);
             return;
         }
         try {
-            const result = getDecisionBoundary({ algorithm, bias, weights: weightsKey.split(',').map(Number) } as State, 100);
+            const result = getDecisionBoundary(state, 100);
             const target: Geometry = {
                 boundaryPoints: result.boundary ?? [],
                 marginPosPoints: result.marginPos ?? [],

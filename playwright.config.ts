@@ -6,7 +6,8 @@ export default defineConfig({
     retries: process.env.CI ? 2 : 0,
     reporter: process.env.CI ? 'github' : 'list',
     use: {
-        baseURL: 'http://127.0.0.1:5173',
+        baseURL: 'http://127.0.0.1:4173',
+        channel: process.env.PLAYWRIGHT_CHANNEL,
         screenshot: 'only-on-failure',
         trace: 'retain-on-failure',
     },
@@ -17,8 +18,8 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: 'npm run dev -- --host 127.0.0.1',
-        url: 'http://127.0.0.1:5173',
+        command: 'npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
+        url: 'http://127.0.0.1:4173',
         reuseExistingServer: !process.env.CI,
     },
 });

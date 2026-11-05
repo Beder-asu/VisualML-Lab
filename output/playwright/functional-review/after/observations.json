@@ -1,0 +1,12 @@
+{
+  "treeAccuracyVisible": true,
+  "treeAfterNavigation": "Decision tree diagram with 1 nodes at depth 0",
+  "historyTicks": [
+    "51",
+    "100",
+    "150",
+    "200",
+    "250"
+  ],
+  "historyDescription": "Loss curve showing 200 training iterations (iterations 51–250). First retained loss: 0.0950, Current loss: 0.0232, Minimum loss: 0.0232, Maximum loss: 0.0950."
+}
