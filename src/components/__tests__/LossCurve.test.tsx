@@ -10,6 +10,19 @@ import { render } from '@testing-library/react';
 import LossCurve from '../LossCurve';
 
 describe('LossCurve', () => {
+    it('preserves iteration labels for a retained 200-point window and resets the offset', () => {
+        const { container, rerender } = render(
+            <LossCurve lossHistory={Array.from({ length: 200 }, (_, i) => 1 / (i + 51))} startIteration={51} />
+        );
+        const labels = Array.from(container.querySelectorAll('.x-axis-labels text')).map(el => el.textContent);
+        expect(labels[0]).toBe('51');
+        expect(labels[labels.length - 1]).toBe('250');
+        expect(container.querySelector('[role="img"]')).toHaveAttribute('aria-label', expect.stringContaining('iterations 51–250'));
+        expect(container.querySelector('[role="img"]')).toHaveAttribute('aria-label', expect.stringContaining('First retained loss'));
+        rerender(<LossCurve lossHistory={[0.5]} startIteration={1} />);
+        expect(container.querySelector('.x-axis-labels text')).toHaveTextContent('1');
+        expect(container.querySelector('.x-axis line')?.getAttribute('x1')).not.toBe('NaN');
+    });
     // ---------------------------------------------------------------------------
     // Rendering tests
     // ---------------------------------------------------------------------------

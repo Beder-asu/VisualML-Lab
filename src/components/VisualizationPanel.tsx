@@ -114,7 +114,12 @@ export function VisualizationPanel({
                     <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
                         Loss Over Time
                     </h3>
-                    <LossCurve lossHistory={lossHistory} width={400} height={400} />
+                    <LossCurve
+                        lossHistory={lossHistory}
+                        startIteration={Math.max(1, iteration - lossHistory.length + 1)}
+                        width={400}
+                        height={400}
+                    />
                 </div>
             </div>
         </div>
