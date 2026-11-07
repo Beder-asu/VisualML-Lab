@@ -16,17 +16,36 @@ for (const algorithm of ['linearRegression', 'logisticRegression', 'svm']) {
                 const loss = document.querySelector<SVGSVGElement>('.loss-curve-container svg');
                 const modelFrame = model?.parentElement?.parentElement;
                 const lossFrame = loss?.parentElement?.parentElement;
-                return document.documentElement.scrollWidth <= innerWidth &&
-                    !!model && !!loss && !!modelFrame && !!lossFrame &&
-                    model.width === modelFrame.clientWidth &&
-                    Number(loss.getAttribute('width')) === lossFrame.clientWidth &&
-                    model.width > 0 && model.width <= 400 &&
-                    lossFrame.clientWidth > 0 && lossFrame.clientWidth <= 400;
-            }), { message: `charts fit at ${width}px` }).toBe(true);
+                return {
+                    overflow: Math.max(0, document.documentElement.scrollWidth - innerWidth),
+                    modelWidth: model?.width,
+                    modelFrameWidth: modelFrame?.clientWidth,
+                    lossWidth: loss ? Number(loss.getAttribute('width')) : undefined,
+                    lossFrameWidth: lossFrame?.clientWidth,
+                };
+            }).then(({ overflow, modelWidth, modelFrameWidth, lossWidth, lossFrameWidth }) => ({
+                overflow,
+                modelFits: !!modelWidth && modelWidth === modelFrameWidth && modelWidth <= 400,
+                lossFits: !!lossWidth && lossWidth === lossFrameWidth && lossWidth <= 400,
+            })), { message: `charts fit at ${width}px` }).toEqual({ overflow: 0, modelFits: true, lossFits: true });
             await expect(page.locator('.loss-points circle')).toHaveCount(1);
         }
     });
 }
+
+test('tablet navigation fits with wider text and can change lessons', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto('/lesson/linearRegression');
+    await page.evaluate(() => { document.documentElement.style.fontSize = '18px'; });
+    const menu = page.getByRole('button', { name: 'Toggle mobile menu' });
+    await expect(menu).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await menu.click();
+    await expect(menu).toHaveAttribute('aria-expanded', 'true');
+    await page.locator('header').getByRole('link', { name: 'SVM' }).click();
+    await expect(page).toHaveURL(/\/lesson\/svm$/);
+    await expect(menu).toHaveAttribute('aria-expanded', 'false');
+});
 
 test('logistic visualization modes fit and render at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });

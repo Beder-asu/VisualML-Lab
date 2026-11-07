@@ -30,7 +30,7 @@ export function Header() {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="hidden md:flex gap-6 items-center">
+                    <nav className="hidden lg:flex gap-6 items-center">
                         {links.map((link) => (
                             <Link
                                 key={link.path}
@@ -47,9 +47,10 @@ export function Header() {
 
                     {/* Mobile Menu Button */}
                     <button
-                        className="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                        className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         aria-label="Toggle mobile menu"
+                        aria-expanded={isMobileMenuOpen}
                     >
                         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
@@ -58,7 +59,7 @@ export function Header() {
 
             {/* Mobile Navigation Menu */}
             {isMobileMenuOpen && (
-                <div className="md:hidden border-t border-gray-200 bg-white">
+                <div className="lg:hidden border-t border-gray-200 bg-white">
                     <nav className="flex flex-col px-4 pt-2 pb-4 space-y-1">
                         {links.map((link) => (
                             <Link
