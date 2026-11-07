@@ -9,6 +9,7 @@ export function Header() {
     const links = [
         { path: '/', label: 'Home' },
         { path: '/eda-cheatsheet', label: 'EDA Cheat Sheet' },
+        { path: '/dataset-explorer', label: 'Dataset Explorer' },
         { path: '/lesson/linearRegression', label: 'Linear Regression' },
         { path: '/lesson/logisticRegression', label: 'Logistic Regression' },
         { path: '/lesson/svm', label: 'SVM' },
@@ -30,7 +31,7 @@ export function Header() {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav className="hidden lg:flex gap-6 items-center">
+                    <nav className="hidden xl:flex gap-5 items-center">
                         {links.map((link) => (
                             <Link
                                 key={link.path}
@@ -47,7 +48,7 @@ export function Header() {
 
                     {/* Mobile Menu Button */}
                     <button
-                        className="lg:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                        className="xl:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                         aria-label="Toggle mobile menu"
                         aria-expanded={isMobileMenuOpen}
@@ -59,7 +60,7 @@ export function Header() {
 
             {/* Mobile Navigation Menu */}
             {isMobileMenuOpen && (
-                <div className="lg:hidden border-t border-gray-200 bg-white">
+                <div className="xl:hidden border-t border-gray-200 bg-white">
                     <nav className="flex flex-col px-4 pt-2 pb-4 space-y-1">
                         {links.map((link) => (
                             <Link
