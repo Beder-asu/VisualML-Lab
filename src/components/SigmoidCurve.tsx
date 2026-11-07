@@ -70,7 +70,7 @@ const SigmoidCurve: React.FC<SigmoidCurveProps> = ({
             .attr('y2', yScale(0))
             .attr('stroke', '#9CA3AF');
 
-        // Y-axis (x = 0, representing 50% probability threshold distance)
+        // Vertical guide at z = 0, the 50% probability threshold.
         g.append('line')
             .attr('x1', xScale(0))
             .attr('x2', xScale(0))
@@ -123,7 +123,7 @@ const SigmoidCurve: React.FC<SigmoidCurveProps> = ({
             .attr('text-anchor', 'middle')
             .attr('font-size', '14px')
             .attr('fill', '#374151')
-            .text('Distance from boundary (z)');
+            .text('Model score (logit)');
 
         g.append('text')
             .attr('x', -innerHeight / 2)
