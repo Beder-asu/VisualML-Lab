@@ -15,8 +15,33 @@ export type ImportedDataset = {
     columns: DatasetColumn[];
 };
 
+function rejectBareQuotes(text: string): void {
+    // Papa Parse accepts quotes embedded in unquoted text. CSV requires escaping those fields.
+    let quoted = false;
+    let fieldStart = 0;
+    let record = 1;
+    for (let index = 0; index < text.length; index += 1) {
+        const character = text[index];
+        if (character === '"') {
+            if (quoted && text[index + 1] === '"') {
+                index += 1;
+                continue;
+            }
+            if (!quoted && index !== fieldStart) {
+                throw new Error(`CSV record ${record}: Enclose fields that contain quotes in double quotes and double each inner quote.`);
+            }
+            quoted = !quoted;
+        } else if (!quoted && (character === ',' || character === '\r' || character === '\n')) {
+            fieldStart = index + 1;
+            if (character === '\n' || (character === '\r' && text[index + 1] !== '\n')) record += 1;
+        }
+    }
+}
+
 export function parseDatasetCsv(name: string, text: string): ImportedDataset {
-    const { data, errors } = Papa.parse<string[]>(text.replace(/^\uFEFF/, ''), {
+    const source = text.replace(/^\uFEFF/, '');
+    rejectBareQuotes(source);
+    const { data, errors } = Papa.parse<string[]>(source, {
         delimiter: ',',
         skipEmptyLines: true,
     });

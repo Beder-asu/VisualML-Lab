@@ -9,10 +9,12 @@ describe('CSV import', () => {
         expect(data.rows[0][2]).toBe('a,b');
         expect(data.columns.map(column => column.numbers)).toEqual([[1200, null], [-2, 3], null, null, null]);
         expect(data.columns.map(column => column.missing)).toEqual([1, 0, 0, 0, 2]);
+        expect(parseDatasetCsv('quoted.csv', 'label\n"He said ""hello"""').rows).toEqual([['He said "hello"']]);
     });
 
     it.each([
         ['x,y\n"unfinished,2', /quotes|quote/i],
+        ['x,y\n"wrapped\nvalue",2\nbare"quote,3', /record 3.*inner quote/],
         ['x, x\n1,2', /different name/],
         ['x,\n1,2', /every column/],
         ['x,y\n1', /record 2.*Expected 2/],
