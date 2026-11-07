@@ -10,12 +10,14 @@ import { select } from 'd3-selection';
 
 interface LossCurveProps {
     lossHistory: number[];
+    startIteration?: number;
     width?: number;
     height?: number;
 }
 
 const LossCurve: React.FC<LossCurveProps> = ({
     lossHistory,
+    startIteration = 1,
     width = 400,
     height = 200,
 }) => {
@@ -38,7 +40,7 @@ const LossCurve: React.FC<LossCurveProps> = ({
     const displayData = useMemo(() => {
         if (lossHistory.length <= 200) {
             // Show all points if we have 200 or fewer
-            return lossHistory.map((loss, index) => ({ iteration: index + 1, loss }));
+            return lossHistory.map((loss, index) => ({ iteration: startIteration + index, loss }));
         }
 
         // For > 200 points, use smart sampling that preserves shape
@@ -47,24 +49,24 @@ const LossCurve: React.FC<LossCurveProps> = ({
         const step = Math.ceil(lossHistory.length / 200);
 
         for (let i = 0; i < lossHistory.length; i += step) {
-            sampledData.push({ iteration: i + 1, loss: lossHistory[i] });
+            sampledData.push({ iteration: startIteration + i, loss: lossHistory[i] });
         }
 
         // Always include the last point
         const lastIndex = lossHistory.length - 1;
-        if (sampledData[sampledData.length - 1].iteration !== lastIndex + 1) {
-            sampledData.push({ iteration: lastIndex + 1, loss: lossHistory[lastIndex] });
+        if (sampledData[sampledData.length - 1].iteration !== startIteration + lastIndex) {
+            sampledData.push({ iteration: startIteration + lastIndex, loss: lossHistory[lastIndex] });
         }
 
         return sampledData;
-    }, [lossHistory]);
+    }, [lossHistory, startIteration]);
 
     // Create scales with auto-scaling y-axis based on loss range
     const { xScale, yScale } = useMemo(() => {
         // X scale: iteration number (1-indexed, not 0-indexed)
-        const maxIteration = Math.max(lossHistory.length, 1);
+        const maxIteration = startIteration + Math.max(lossHistory.length - 1, 0);
         const xScale = scaleLinear()
-            .domain([1, maxIteration])
+            .domain([startIteration, maxIteration])
             .range([0, innerWidth]);
 
         // Y scale: loss value (auto-scale based on data range)
@@ -92,7 +94,7 @@ const LossCurve: React.FC<LossCurveProps> = ({
             .range([0, innerHeight]);
 
         return { xScale, yScale };
-    }, [lossHistory, innerWidth, innerHeight]);
+    }, [lossHistory, startIteration, innerWidth, innerHeight]);
 
     // Create line generator
     const lineGenerator = useMemo(() => {
@@ -118,7 +120,7 @@ const LossCurve: React.FC<LossCurveProps> = ({
         // X-axis
         const xAxisTicks = Math.min(5, lossHistory.length);
         const xTickValues = Array.from({ length: xAxisTicks }, (_, i) =>
-            Math.floor((i * (lossHistory.length - 1)) / (xAxisTicks - 1)) + 1 // +1 for 1-indexed iterations
+            startIteration + (xAxisTicks === 1 ? 0 : Math.floor((i * (lossHistory.length - 1)) / (xAxisTicks - 1)))
         );
 
         g.append('g')
@@ -221,7 +223,7 @@ const LossCurve: React.FC<LossCurveProps> = ({
             .attr('r', displayData.length <= 100 ? 2 : 1)
             .attr('fill', '#4F46E5');
 
-    }, [lossHistory, displayData, xScale, yScale, lineGenerator, innerWidth, innerHeight]);
+    }, [lossHistory, startIteration, displayData, xScale, yScale, lineGenerator, innerWidth, innerHeight]);
 
     // Generate accessible description for loss curve
     const getLossCurveDescription = useMemo(() => {
@@ -235,8 +237,10 @@ const LossCurve: React.FC<LossCurveProps> = ({
         const maxLoss = Math.max(...lossHistory);
         const iterations = lossHistory.length;
 
-        return `Loss curve showing ${iterations} training iterations. Initial loss: ${initialLoss.toFixed(4)}, Current loss: ${currentLoss.toFixed(4)}, Minimum loss: ${minLoss.toFixed(4)}, Maximum loss: ${maxLoss.toFixed(4)}.`;
-    }, [lossHistory]);
+        const range = startIteration > 1 ? ` (iterations ${startIteration}–${startIteration + iterations - 1})` : '';
+        const firstLabel = startIteration > 1 ? 'First retained loss' : 'Initial loss';
+        return `Loss curve showing ${iterations} training iterations${range}. ${firstLabel}: ${initialLoss.toFixed(4)}, Current loss: ${currentLoss.toFixed(4)}, Minimum loss: ${minLoss.toFixed(4)}, Maximum loss: ${maxLoss.toFixed(4)}.`;
+    }, [lossHistory, startIteration]);
 
     return (
         <div

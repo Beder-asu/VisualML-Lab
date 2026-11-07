@@ -395,7 +395,6 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseLeave}
-                aria-hidden="true"
             >
                 <g
                     className="tree-group"

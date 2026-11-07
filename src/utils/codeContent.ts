@@ -37,7 +37,7 @@ export const algorithmCode: Record<string, AlgorithmCode> = {
             // Error: pred - Y
             const error = pred.map((p, i) => p - Y[i]);
             
-            // Gradient: (1/m) * newX.T @ error
+            // Gradient of half-MSE: (1/m) * newX.T @ error
             const dw = new Array(n + 1).fill(0);
             for (let j = 0; j < n + 1; j++) {
                 for (let i = 0; i < m; i++) {

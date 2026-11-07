@@ -193,11 +193,14 @@ const DecisionRegions: React.FC<DecisionRegionsProps> = ({
         // Create offscreen canvas for caching regions
         if (!offscreenCanvasRef.current) {
             offscreenCanvasRef.current = document.createElement('canvas');
-            offscreenCanvasRef.current.width = width;
-            offscreenCanvasRef.current.height = height;
         }
 
         const offscreenCanvas = offscreenCanvasRef.current;
+        const resized = offscreenCanvas.width !== width || offscreenCanvas.height !== height;
+        if (resized) {
+            offscreenCanvas.width = width;
+            offscreenCanvas.height = height;
+        }
         const offscreenCtx = offscreenCanvas.getContext('2d');
         if (!offscreenCtx) return;
 
@@ -205,11 +208,15 @@ const DecisionRegions: React.FC<DecisionRegionsProps> = ({
         const treeStateSignature = JSON.stringify({
             depth: treeData?.currentDepth,
             nodeCount: treeData?.nodeCount,
-            regions: regions.map(r => r.id),
+            width,
+            height,
+            regions,
+            splitLines,
+            dataset,
         });
 
         // Only redraw regions if tree state changed
-        const treeStateChanged = treeStateSignature !== lastTreeStateRef.current;
+        const treeStateChanged = resized || treeStateSignature !== lastTreeStateRef.current;
         if (treeStateChanged) {
             // Clear offscreen canvas
             offscreenCtx.clearRect(0, 0, width, height);

@@ -102,6 +102,8 @@ The UI test configuration isolates modules between files so component mocks cann
 
 ## Current limits
 
+The November 6 functional-review fixes and their retained regression checks are documented in [Functional review fixes](./docs/FUNCTIONAL_REVIEW_FIXES.md), including desktop/mobile before-and-after browser references. The updated local verification passed 85 engine tests, 431 UI tests, 8 production-browser tests, and the production build. `npm run test:e2e` now builds before testing the production preview.
+
 - The project teaches four algorithms; the staged ensemble implementations are not yet integrated.
 - Visualizations use small, embedded 2D datasets for clarity, not large-scale model training.
 - The Decision Tree controller still computes on the main thread, unlike the worker-backed gradient lessons.

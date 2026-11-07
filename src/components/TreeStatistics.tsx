@@ -90,7 +90,8 @@ export const TreeStatistics: React.FC<TreeStatisticsProps> = ({ treeState }) => 
     const nodeCount = treeState.nodeCount;
     const leafCount = treeState.leafCount;
     const samplesPerLeaf = getSamplesPerLeaf(treeState);
-    const accuracy = treeState.converged ? calculateAccuracy(treeState) : null;
+    const complete = treeState.converged || currentDepth >= maxDepth;
+    const accuracy = complete ? calculateAccuracy(treeState) : null;
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

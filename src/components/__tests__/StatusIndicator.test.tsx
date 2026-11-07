@@ -84,8 +84,8 @@ describe('StatusIndicator', () => {
         expect(screen.getByText(/Iteration 25\/100/)).toBeInTheDocument();
     });
 
-    // Requirements 9.3: Display "Converged" message with success indicator
-    it('displays "Converged" when training is complete', () => {
+    // A configured training limit establishes completion, not mathematical convergence.
+    it('reports completion without claiming mathematical convergence', () => {
         render(
             <StatusIndicator
                 isPlaying={false}
@@ -95,7 +95,7 @@ describe('StatusIndicator', () => {
             />
         );
 
-        expect(screen.getByText('Converged')).toBeInTheDocument();
+        expect(screen.getByText('Complete')).toBeInTheDocument();
     });
 
     // Test ARIA attributes for accessibility

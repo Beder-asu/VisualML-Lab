@@ -41,16 +41,17 @@ function stepLinearRegression(state, params) {
     // residual = pred - y
     const residual = sub(pred, Float64Array.from(y));
 
-    // MSE loss = (1/m) * sum(residual^2)
-    let mse = 0;
-    for (let i = 0; i < residual.length; i++) mse += residual[i] * residual[i];
-    mse /= m;
-
-    // dw = (1/m) * newX.T @ residual
+    // Gradient of half-MSE: dw = (1/m) * newX.T @ residual.
     const dw = scale(matTvec(newX, residual), 1 / m);
 
     // w -= lr * dw
     const newW = sub(w, scale(dw, lr));
+
+    // Report full MSE for the returned weights, not the previous iteration.
+    const updatedPred = matvec(newX, newW);
+    let mse = 0;
+    for (let i = 0; i < m; i++) mse += (updatedPred[i] - y[i]) ** 2;
+    mse /= m;
 
     return {
         ...state,

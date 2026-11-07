@@ -80,7 +80,7 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
 }) => {
     // Integrate keyboard shortcuts (Requirements 1.4, 5.1)
     // This hook wraps useKeyboardShortcuts and provides no-op defaults for undefined handlers
-    useLayoutKeyboardShortcuts(keyboardHandlers, true);
+    useLayoutKeyboardShortcuts(keyboardHandlers, !helpModalOpen);
 
     // Determine grid classes based on layout option (Requirements 4.1, 4.5, 8.1, 8.2)
     // Design Decision: Using Tailwind's responsive grid system for mobile-first design

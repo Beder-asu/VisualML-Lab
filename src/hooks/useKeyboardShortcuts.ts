@@ -37,11 +37,16 @@ export function useKeyboardShortcuts(config: KeyboardShortcutsConfig): void {
         }
 
         const handleKeyDown = (event: KeyboardEvent) => {
+            // Components such as the tree own their handled navigation keys.
+            if (event.defaultPrevented) return;
             // Ignore shortcuts when user is typing in an input field
             const target = event.target as HTMLElement;
             if (
                 target.tagName === 'INPUT' ||
                 target.tagName === 'TEXTAREA' ||
+                target.tagName === 'SELECT' ||
+                (target.tagName === 'BUTTON' && event.key === ' ') ||
+                (target instanceof Element && target.closest('[role="dialog"], [contenteditable="true"]')) ||
                 (target.contentEditable && target.contentEditable === 'true')
             ) {
                 return;
