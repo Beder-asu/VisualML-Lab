@@ -33,7 +33,7 @@ jobs:
         run: npm run test:ui -- --maxWorkers=2
 
       - name: Install browser for smoke test
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Run browser smoke test
-        run: npm run test:e2e
+        run: npm run test:e2e -- --workers=2
