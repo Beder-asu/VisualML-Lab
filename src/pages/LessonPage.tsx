@@ -74,7 +74,7 @@ const LessonPage: React.FC = () => {
 
     // Validate algorithm exists in layout map (Requirements: 3.1, 3.3)
     // If invalid, redirect to home page (silent redirect, no error toast)
-    if (!algorithm || !layoutMap[algorithm]) {
+    if (!algorithm || !Object.prototype.hasOwnProperty.call(layoutMap, algorithm)) {
         return <Navigate to="/" replace />;
     }
 
