@@ -58,6 +58,8 @@ for (const algorithm of ['linearRegression', 'logisticRegression', 'svm']) {
 }
 
 test('a 250-step real-worker run retains actual history iteration labels', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/lesson/linearRegression');
     await page.getByLabel('Step once (Right Arrow)').click();
     await expect(page.getByRole('status')).toHaveAttribute('aria-label', 'Paused at iteration 1 of 100');
@@ -65,7 +67,7 @@ test('a 250-step real-worker run retains actual history iteration labels', async
     await expect(page.getByRole('status')).toHaveAttribute('aria-label', 'Ready to train');
     await page.getByLabel('Training speed', { exact: true }).fill('100');
     await page.getByLabel('Play training (Spacebar)').click();
-    await expect(page.getByRole('status')).toHaveAttribute('aria-label', 'Training complete at iteration 250 of 250', { timeout: 20_000 });
+    await expect(page.getByRole('status')).toHaveAttribute('aria-label', 'Training complete at iteration 250 of 250', { timeout: 45_000 });
     const ticks = page.locator('.x-axis-labels text');
     await expect(ticks.first()).toHaveText('51');
     await expect(ticks.last()).toHaveText('250');

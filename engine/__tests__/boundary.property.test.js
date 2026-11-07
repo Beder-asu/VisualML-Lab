@@ -60,7 +60,7 @@ describe('Property 6: Decision boundary returns valid points', () => {
                 const points = res.boundary;
 
                 expect(Array.isArray(points)).toBe(true);
-                expect(points.length).toBe(gridSize);
+                expect([0, gridSize]).toContain(points.length);
 
                 for (const pt of points) {
                     expect(typeof pt.x).toBe('number');
@@ -68,6 +68,9 @@ describe('Property 6: Decision boundary returns valid points', () => {
                     expect(pt.x).toBeGreaterThanOrEqual(0);
                     expect(pt.x).toBeLessThanOrEqual(1);
                     expect(isFinite(pt.y)).toBe(true);
+                    expect(pt.y).toBeGreaterThanOrEqual(0);
+                    expect(pt.y).toBeLessThanOrEqual(1);
+                    expect(state.weights[0] * pt.x + state.weights[1] * pt.y + state.bias).toBeCloseTo(0, 10);
                 }
             }),
             { numRuns: 100 }
@@ -95,5 +98,55 @@ describe('Property 6: Decision boundary returns valid points', () => {
             }),
             { numRuns: 100 }
         );
+    });
+});
+
+describe('visible classifier geometry', () => {
+    it.each([
+        [[1, 0], -0.5, { x: 0.5, y: 0 }, { x: 0.5, y: 1 }],
+        [[0, 1], -0.5, { x: 0, y: 0.5 }, { x: 1, y: 0.5 }],
+        [[0, 1], 0, { x: 0, y: 0 }, { x: 1, y: 0 }],
+    ])('samples the visible segment for weights %j and bias %s', (weights, bias, first, last) => {
+        const { boundary } = getDecisionBoundary({ algorithm: 'logisticRegression', weights, bias }, 7);
+        expect(boundary).toHaveLength(7);
+        expect(boundary[0]).toEqual(first);
+        expect(boundary[6]).toEqual(last);
+    });
+
+    it('clips a nearly vertical line without large or non-finite coordinates', () => {
+        const { boundary } = getDecisionBoundary({
+            algorithm: 'logisticRegression', weights: [1, 1e-12], bias: -0.5,
+        }, 9);
+        expect(boundary).toHaveLength(9);
+        for (const { x, y } of boundary) {
+            expect(x).toBeCloseTo(0.5, 10);
+            expect(y).toBeGreaterThanOrEqual(0);
+            expect(y).toBeLessThanOrEqual(1);
+            expect(x + 1e-12 * y - 0.5).toBeCloseTo(0, 13);
+        }
+    });
+
+    it.each([
+        [[1, 0], -2], [[1, 1], 0], [[0, 0], 1],
+    ])('returns no drawable line for weights %j and bias %s', (weights, bias) => {
+        expect(getDecisionBoundary({ algorithm: 'logisticRegression', weights, bias }).boundary).toEqual([]);
+    });
+
+    it('clips the SVM decision line and both margins independently', () => {
+        const { boundary, marginPos, marginNeg } = getDecisionBoundary({
+            algorithm: 'svm', weights: [3, 0], bias: -1.5,
+        }, 8);
+        for (const [points, level] of [[boundary, 0], [marginPos, 1], [marginNeg, -1]]) {
+            expect(points).toHaveLength(8);
+            for (const { x, y } of points) {
+                expect(3 * x - 1.5).toBeCloseTo(level, 12);
+                expect(y).toBeGreaterThanOrEqual(0);
+                expect(y).toBeLessThanOrEqual(1);
+            }
+        }
+        const half = getDecisionBoundary({ algorithm: 'svm', weights: [1, 0], bias: -0.5 }, 8);
+        expect(half.boundary).toHaveLength(8);
+        expect(half.marginPos).toEqual([]);
+        expect(half.marginNeg).toEqual([]);
     });
 });

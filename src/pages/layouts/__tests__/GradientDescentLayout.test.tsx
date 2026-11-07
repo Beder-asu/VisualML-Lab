@@ -11,6 +11,10 @@ import * as layoutUtilsModule from '../../../utils/layoutUtils';
 
 // Mock dependencies
 vi.mock('../../../hooks/useTrainingController');
+// jsdom does not calculate layout. Browser tests verify the real measurements.
+vi.mock('../../../hooks/useElementSize', () => ({
+    useElementSize: () => [vi.fn(), { width: 360, height: 360 }],
+}));
 vi.mock('../../../hooks/useLayoutHooks', () => ({
     useLayoutError: () => ({
         error: null,

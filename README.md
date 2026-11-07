@@ -29,9 +29,9 @@ The project is both an educational product and an engineering experiment in keep
 
 | Lesson | What the visualization exposes | Adjustable inputs |
 | --- | --- | --- |
-| Linear Regression | The fitted line and loss as gradient descent updates the model | Learning rate, iteration limit, dataset |
-| Logistic Regression | A classification boundary, predictions, and convergence behavior | Learning rate, iteration limit, dataset |
-| Support Vector Machine | The evolving linear decision boundary and hinge-loss training | Learning rate, regularization, iteration limit, dataset |
+| Linear Regression | The fitted line and loss on the preset synthetic linear dataset | Learning rate, iteration limit |
+| Logistic Regression | A classification boundary, predictions, and convergence behavior on the preset two-feature Iris dataset | Learning rate, iteration limit |
+| Support Vector Machine | The evolving linear decision boundary and hinge-loss training on preset synthetic blobs | Learning rate, regularization, iteration limit |
 | Decision Tree | Level-by-level tree growth alongside the corresponding 2D decision regions | Maximum depth, Gini or entropy criterion, minimum samples per split |
 
 Across the lessons, users can:
@@ -93,7 +93,7 @@ Verified on 2026-10-18:
 | React component, hook, integration, accessibility, and property tests | 408 passing |
 | Browser smoke test | Passing in Chromium: open Decision Tree, change maximum depth, step once, and verify both visualizations update |
 | Production TypeScript and Vite build | Passing |
-| Continuous integration | Engine tests, UI tests, Chromium smoke test, and production build on every push and pull request |
+| Continuous integration | Engine tests, UI tests, browser smoke tests, and production build on pushes to `main` and on pull requests |
 | Live Decision Tree interaction | Verified: stepping changes the tree depth, node count, and decision regions |
 | Responsive browser audit | Homepage and Decision Tree verified at 390px with no horizontal overflow |
 | Production dependency audit | No critical, high, or moderate advisories; four low-severity KaTeX-chain advisories remain pending a tested major upgrade |
@@ -107,7 +107,7 @@ The November 6 functional-review fixes and their retained regression checks are 
 - The project teaches four algorithms; the staged ensemble implementations are not yet integrated.
 - Visualizations use small, embedded 2D datasets for clarity, not large-scale model training.
 - The Decision Tree controller still computes on the main thread, unlike the worker-backed gradient lessons.
-- The browser suite currently covers one critical Decision Tree path; it is a smoke test rather than exhaustive end-to-end coverage.
+- The browser suite covers core training and usability regressions in Chromium, Firefox, and WebKit. Physical-device and screen-reader checks are separate.
 - KaTeX requires a major-version upgrade to clear the remaining low-severity dependency advisories; that upgrade should be tested rather than forced.
 
 ## Technology
@@ -138,9 +138,15 @@ Then open `http://localhost:5173`.
 ```bash
 npm test
 npm run test:ui
+npx playwright install chromium firefox webkit
 npm run test:e2e
-npm run build
 ```
+
+The browser command builds the production app and runs it in Chromium, Firefox, and WebKit.
+On Linux, use `npx playwright install --with-deps chromium firefox webkit` to install system dependencies too.
+To use installed Chrome locally, set `PLAYWRIGHT_CHANNEL=chrome` and run `npm run test:e2e -- --project=chromium`.
+
+See the [usability and geometry verification](./docs/USABILITY_REVIEW_FIXES.md) for viewport comparisons, zoom evidence, and regression coverage.
 
 ## Repository map
 

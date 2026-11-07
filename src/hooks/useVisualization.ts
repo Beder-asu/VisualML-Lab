@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { State } from '../types/engine';
 import { getDecisionBoundary } from '../../engine/boundary';
+import { useReducedMotion } from './useReducedMotion';
 
 export interface BoundaryPoint { x: number; y: number; }
 export interface UseVisualizationResult {
@@ -13,11 +14,26 @@ export interface UseVisualizationResult {
 const emptyGeometry = () => ({ boundaryPoints: [], marginPosPoints: [], marginNegPoints: [] });
 type Geometry = Omit<UseVisualizationResult, 'isAnimating'>;
 
+function alignSegment(from: BoundaryPoint[], to: BoundaryPoint[]): BoundaryPoint[] {
+    if (from.length !== to.length || from.length < 2) return from;
+    const first = from[0];
+    const last = from[from.length - 1];
+    const targetFirst = to[0];
+    const targetLast = to[to.length - 1];
+    const distanceSquared = (a: BoundaryPoint, b: BoundaryPoint) =>
+        (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    return distanceSquared(first, targetFirst) + distanceSquared(last, targetLast) <=
+        distanceSquared(last, targetFirst) + distanceSquared(first, targetLast)
+        ? from
+        : [...from].reverse();
+}
+
 /** Interpolate from the displayed geometry when a newer training result arrives. */
 export function useVisualization(state: State | null): UseVisualizationResult {
     const [geometry, setGeometry] = useState<Geometry>(emptyGeometry);
     const [isAnimating, setIsAnimating] = useState(false);
     const displayedRef = useRef<Geometry>(emptyGeometry());
+    const reduceMotion = useReducedMotion();
     // Loss/iteration updates alone do not alter geometry or interrupt a transition.
     const algorithm = state?.algorithm;
     const bias = state?.bias;
@@ -41,7 +57,17 @@ export function useVisualization(state: State | null): UseVisualizationResult {
                 marginPosPoints: result.marginPos ?? [],
                 marginNegPoints: result.marginNeg ?? [],
             };
-            const start = displayedRef.current;
+            if (reduceMotion) {
+                display(target);
+                setIsAnimating(false);
+                return;
+            }
+            const current = displayedRef.current;
+            const start = {
+                boundaryPoints: alignSegment(current.boundaryPoints, target.boundaryPoints),
+                marginPosPoints: alignSegment(current.marginPosPoints, target.marginPosPoints),
+                marginNegPoints: alignSegment(current.marginNegPoints, target.marginNegPoints),
+            };
             const startTime = performance.now();
             const interpolate = (from: BoundaryPoint[], to: BoundaryPoint[], progress: number) =>
                 to.map((point, i) => ({
@@ -67,7 +93,7 @@ export function useVisualization(state: State | null): UseVisualizationResult {
             setIsAnimating(false);
         }
         return () => { if (frame !== undefined) cancelAnimationFrame(frame); };
-    }, [algorithm, bias, weightsKey]);
+    }, [algorithm, bias, weightsKey, reduceMotion]);
 
     return { ...geometry, isAnimating };
 }

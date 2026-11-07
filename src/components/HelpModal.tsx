@@ -63,6 +63,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
 
         const modal = document.getElementById('help-modal');
         if (!modal) return;
+        const opener = document.activeElement;
 
         const focusableElements = modal.querySelectorAll(
             'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -89,7 +90,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         window.addEventListener('keydown', handleTab);
         firstElement?.focus();
 
-        return () => window.removeEventListener('keydown', handleTab);
+        return () => {
+            window.removeEventListener('keydown', handleTab);
+            if (opener?.isConnected && (opener instanceof HTMLElement || opener instanceof SVGElement)) {
+                opener.focus();
+            }
+        };
     }, [isOpen]);
 
     if (!isOpen) return null;

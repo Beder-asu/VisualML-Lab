@@ -3,10 +3,11 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 5.1, 6.1, 6.2, 6.3, 6.4
  */
 
-import React, { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useMemo, useState, useCallback, useId } from 'react';
 import { hierarchy, tree } from 'd3-hierarchy';
 import { HierarchyPointNode } from 'd3-hierarchy';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 // Tree node data structure from ML Engine
 interface TreeNode {
@@ -59,6 +60,8 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
     const [localPan, setLocalPan] = useState(pan);
     const [localZoom, setLocalZoom] = useState(zoom);
     const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+    const treeId = useId();
+    const reduceMotion = useReducedMotion();
     // Non-default viewport props are an explicit caller choice and must not be
     // replaced by the initial auto-fit pass.
     const [userInteracted, setUserInteracted] = useState(
@@ -148,7 +151,7 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
     }, []);
 
     // Get all node IDs in depth-first order for keyboard navigation
-    const getAllNodeIds = useCallback((): string[] => {
+    const nodeIds = useMemo((): string[] => {
         if (!treeData || !treeData.root) return [];
 
         const ids: string[] = [];
@@ -160,12 +163,19 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
         traverse(treeData.root);
         return ids;
     }, [treeData]);
+    const activeNodeId = focusedNodeId && nodeIds.includes(focusedNodeId) ? focusedNodeId : nodeIds[0];
+
+    useEffect(() => {
+        if (focusedNodeId !== null && !nodeIds.includes(focusedNodeId)) {
+            setFocusedNodeId(activeNodeId ?? null);
+            if (document.activeElement === svgRef.current) onNodeHover(activeNodeId ?? null);
+        }
+    }, [activeNodeId, focusedNodeId, nodeIds, onNodeHover]);
 
     // Handle keyboard navigation
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (!treeData || !treeData.root) return;
 
-        const nodeIds = getAllNodeIds();
         const currentIndex = focusedNodeId ? nodeIds.indexOf(focusedNodeId) : -1;
 
         switch (e.key) {
@@ -195,8 +205,8 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
             case ' ':
                 e.preventDefault();
                 // Activate node (click)
-                if (focusedNodeId && onNodeClick) {
-                    onNodeClick(focusedNodeId);
+                if (activeNodeId && onNodeClick) {
+                    onNodeClick(activeNodeId);
                 }
                 break;
 
@@ -219,18 +229,7 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
                 }
                 break;
         }
-    }, [treeData, focusedNodeId, getAllNodeIds, onNodeHover, onNodeClick]);
-
-    // Handle node focus
-    const handleNodeFocus = useCallback((nodeId: string) => {
-        setFocusedNodeId(nodeId);
-        onNodeHover(nodeId);
-    }, [onNodeHover]);
-
-    // Handle node blur
-    const handleNodeBlur = useCallback(() => {
-        // Don't clear focus immediately to allow navigation
-    }, []);
+    }, [treeData, focusedNodeId, activeNodeId, nodeIds, onNodeHover, onNodeClick]);
 
     // Convert ML Engine tree to D3 hierarchy format
     const hierarchyData = useMemo(() => {
@@ -326,10 +325,6 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
             ref={containerRef}
             style={{ position: 'relative', width, height }}
             className="tree-diagram-container bg-white rounded-lg border border-gray-200"
-            role="tree"
-            aria-label={`Decision tree diagram with ${treeData.nodeCount} nodes at depth ${currentDepth}`}
-            onKeyDown={handleKeyDown}
-            tabIndex={0}
         >
             {/* CSS Animations */}
             <style>{`
@@ -385,6 +380,17 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
 
             <svg
                 ref={svgRef}
+                role="tree"
+                aria-label={`Decision tree diagram with ${treeData.nodeCount} nodes at depth ${currentDepth}`}
+                aria-activedescendant={activeNodeId === undefined ? undefined : `${treeId}-${activeNodeId}`}
+                tabIndex={0}
+                onKeyDown={handleKeyDown}
+                onFocus={() => {
+                    if (activeNodeId !== undefined) {
+                        setFocusedNodeId(activeNodeId);
+                        onNodeHover(activeNodeId);
+                    }
+                }}
                 width={width}
                 height={height}
                 style={{
@@ -411,6 +417,7 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
                                 target={link.target}
                                 isLeft={isLeft}
                                 maxSamples={treeData.root.samples}
+                                reduceMotion={reduceMotion}
                             />
                         );
                     })}
@@ -420,12 +427,12 @@ const TreeDiagram: React.FC<TreeDiagramProps> = ({
                         <TreeNodeComponent
                             key={node.data.id}
                             node={node}
+                            id={`${treeId}-${node.data.id}`}
                             highlightedNode={highlightedNode}
                             focusedNode={focusedNodeId}
                             onNodeHover={onNodeHover}
                             onNodeClick={onNodeClick}
-                            onNodeFocus={handleNodeFocus}
-                            onNodeBlur={handleNodeBlur}
+                            reduceMotion={reduceMotion}
                         />
                     ))}
                 </g>
@@ -443,23 +450,23 @@ export default TreeDiagram;
 
 // TreeNode sub-component
 interface TreeNodeComponentProps {
+    id: string;
     node: HierarchyPointNode<any>;
     highlightedNode: string | null;
     focusedNode: string | null;
     onNodeHover: (nodeId: string | null) => void;
     onNodeClick?: (nodeId: string) => void;
-    onNodeFocus: (nodeId: string) => void;
-    onNodeBlur: () => void;
+    reduceMotion: boolean;
 }
 
 const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
     node,
+    id,
     highlightedNode,
     focusedNode,
     onNodeHover,
     onNodeClick,
-    onNodeFocus,
-    onNodeBlur,
+    reduceMotion,
 }) => {
     const nodeData = node.data;
     const isLeaf = !node.children || node.children.length === 0;
@@ -488,20 +495,18 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
 
     return (
         <g
+            id={id}
             className="tree-node animate-fade-in"
             transform={`translate(${node.x}, ${node.y})`}
             onMouseEnter={() => onNodeHover(nodeData.id)}
             onMouseLeave={() => onNodeHover(null)}
             onClick={() => onNodeClick?.(nodeData.id)}
-            onFocus={() => onNodeFocus(nodeData.id)}
-            onBlur={onNodeBlur}
             role="treeitem"
             aria-label={getAriaLabel()}
             aria-selected={isFocused}
-            tabIndex={isFocused ? 0 : -1}
             style={{
                 cursor: 'pointer',
-                animation: 'fadeIn 0.3s ease-in-out',
+                animation: reduceMotion ? 'none' : 'fadeIn 0.3s ease-in-out',
                 outline: isFocused ? '2px solid #000' : 'none',
                 outlineOffset: '4px'
             }}
@@ -518,7 +523,7 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
                     filter: isHighlighted || isFocused 
                         ? 'drop-shadow(0px 8px 12px rgba(0, 0, 0, 0.25))' 
                         : 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.12))',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: reduceMotion ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
             />
 
@@ -554,6 +559,7 @@ interface TreeEdgeComponentProps {
     target: HierarchyPointNode<any>;
     isLeft: boolean;
     maxSamples: number;
+    reduceMotion: boolean;
 }
 
 const TreeEdgeComponent: React.FC<TreeEdgeComponentProps> = ({
@@ -561,6 +567,7 @@ const TreeEdgeComponent: React.FC<TreeEdgeComponentProps> = ({
     target,
     isLeft,
     maxSamples,
+    reduceMotion,
 }) => {
     // Create Bezier curve path
     const createPath = () => {
@@ -590,7 +597,7 @@ const TreeEdgeComponent: React.FC<TreeEdgeComponentProps> = ({
     const edgeWidth = 1.5 + (sampleProportion * 6.5);
 
     return (
-        <g className="tree-edge">
+        <g className="tree-edge" aria-hidden="true">
             {/* Edge path */}
             <path
                 d={createPath()}
@@ -600,7 +607,7 @@ const TreeEdgeComponent: React.FC<TreeEdgeComponentProps> = ({
                 opacity={0.75}
                 strokeLinecap="round"
                 className="transition-all duration-200"
-                style={{
+                style={reduceMotion ? { transition: 'none' } : {
                     strokeDasharray: 1000,
                     strokeDashoffset: 1000,
                     animation: 'drawEdge 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards'

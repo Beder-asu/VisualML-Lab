@@ -1,0 +1,18 @@
+{
+  "320": {
+    "viewport": 320,
+    "document": 320
+  },
+  "390": {
+    "viewport": 390,
+    "document": 390
+  },
+  "1024": {
+    "viewport": 1024,
+    "document": 1024
+  },
+  "1440": {
+    "viewport": 1440,
+    "document": 1440
+  }
+}

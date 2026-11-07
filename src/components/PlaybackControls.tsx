@@ -139,7 +139,7 @@ export function PlaybackControls({
             </button>
 
             {/* Speed Slider — continuous log scale 16ms–500ms with steps/sec readout */}
-            <div className="flex items-center gap-2 ml-0 sm:ml-2" title="Playback speed">
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 ml-0 sm:ml-2" title="Playback speed">
                 <span className="text-xs text-gray-400 select-none">Slow</span>
                 <input
                     type="range"
@@ -154,7 +154,7 @@ export function PlaybackControls({
                         const ms = Math.round(Math.exp(Math.log(500) + t * (Math.log(16) - Math.log(500))));
                         onSpeedChange(ms);
                     }}
-                    className="w-36 accent-indigo-600 cursor-pointer"
+                    className="w-36 max-w-full min-w-0 accent-indigo-600 cursor-pointer"
                     aria-label="Training speed"
                 />
                 <span className="text-xs text-gray-400 select-none">Fast</span>

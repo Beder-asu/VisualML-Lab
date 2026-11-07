@@ -53,7 +53,7 @@ export function drawGrid(config: DrawConfig): void {
 /**
  * Draw axes with labels and tick marks
  */
-export function drawAxes(config: DrawConfig): void {
+export function drawAxes(config: DrawConfig, verticalLabel = 'Feature 2'): void {
     const { ctx, xScale, yScale, width, height, margin } = config;
 
     ctx.strokeStyle = '#374151'; // dark gray
@@ -112,9 +112,9 @@ export function drawAxes(config: DrawConfig): void {
     ctx.fillText('Feature 1', width / 2, height - margin.bottom + 30);
 
     ctx.save();
-    ctx.translate(margin.left - 40, height / 2);
+    ctx.translate(margin.left - 48, (margin.top + height - margin.bottom) / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Feature 2', 0, 0);
+    ctx.fillText(verticalLabel, 0, 0);
     ctx.restore();
 }
 
