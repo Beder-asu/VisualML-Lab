@@ -112,7 +112,7 @@ function getSliderConfigs(algorithm: string): SliderConfig[] {
                     label: 'Max Iterations',
                     min: 10,
                     max: 2000,
-                    step: 50,
+                    step: 10,
                     feedbackTiers: [
                         { max: 199, message: 'Logistic regression often requires more steps to separate classes. Consider increasing.', type: 'warning' },
                         { max: 1000, message: 'Optimal range for observing the sigmoid boundary taking shape.', type: 'success' },
@@ -174,6 +174,7 @@ export function ParameterControls({
 }: ParameterControlsProps) {
     const [localParams, setLocalParams] = useState<Params>(params);
     const debounceTimerRef = useRef<number | null>(null);
+    const pendingParamsRef = useRef<Partial<Params>>({});
 
     // Update local params when props change
     useEffect(() => {
@@ -188,6 +189,7 @@ export function ParameterControls({
         (key: keyof Params, value: number) => {
             // Update local state immediately for responsive UI
             setLocalParams((prev) => ({ ...prev, [key]: value }));
+            pendingParamsRef.current = { ...pendingParamsRef.current, [key]: value };
 
             // Clear existing timer
             if (debounceTimerRef.current !== null) {
@@ -196,13 +198,16 @@ export function ParameterControls({
 
             // Debounce the actual param update
             debounceTimerRef.current = window.setTimeout(() => {
+                const pendingParams = pendingParamsRef.current;
+                pendingParamsRef.current = {};
+                debounceTimerRef.current = null;
                 // Pause if playing (Requirements 2.5)
                 if (isPlaying && onPause) {
                     onPause();
                 }
 
                 // Trigger param update and reset
-                onParamsChange({ [key]: value });
+                onParamsChange(pendingParams);
             }, 100);
         },
         [isPlaying, onParamsChange, onPause]

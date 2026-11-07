@@ -177,6 +177,17 @@ describe('TreeParameterControls', () => {
         expect(mockOnParamsChange).not.toHaveBeenCalled();
     });
 
+    it('commits rapid edits to depth and criterion together', async () => {
+        render(<TreeParameterControls {...defaultProps} />);
+        fireEvent.change(screen.getByRole('slider', { name: /Max Depth/ }), { target: { value: '5' } });
+        fireEvent.change(screen.getByRole('combobox', { name: /Split Criterion/ }), { target: { value: 'entropy' } });
+
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(mockOnParamsChange).toHaveBeenCalledTimes(1);
+        expect(mockOnParamsChange).toHaveBeenCalledWith({ maxDepth: 5, criterion: 'entropy' });
+    });
+
     it('cleans up debounce timer on unmount', () => {
         const { unmount } = render(<TreeParameterControls {...defaultProps} />);
 

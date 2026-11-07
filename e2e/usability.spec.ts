@@ -50,6 +50,10 @@ test('tablet navigation fits with wider text and can change lessons', async ({ p
 test('logistic visualization modes fit and render at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 900 });
     await page.goto('/lesson/logisticRegression');
+    const iterations = page.getByRole('slider', { name: 'Max Iterations: 100' });
+    await expect(iterations).toHaveValue('100');
+    await iterations.press('End');
+    await expect(page.getByRole('slider', { name: 'Max Iterations: 2000' })).toHaveValue('2000');
     const selector = page.getByRole('combobox', { name: 'Visualization view' });
     await expect(selector).toHaveValue('scatter');
     await expect(scatter(page)).toBeVisible();
@@ -61,6 +65,7 @@ test('logistic visualization modes fit and render at 320px', async ({ page }) =>
     await selector.selectOption('sigmoid');
     await expect(page.getByRole('heading', { name: 'Sigmoid Concept Curve' })).toBeVisible();
     await expect(page.locator('.sigmoid-curve-container svg path')).toBeVisible();
+    await expect(page.getByText('Model score (logit)', { exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 

@@ -107,9 +107,9 @@ describe('LessonPage - Layout Dispatcher', () => {
     });
 
     describe('Invalid algorithm handling', () => {
-        it('redirects to home for invalid algorithm', () => {
+        it.each(['invalidAlgorithm', 'constructor', '__proto__'])('redirects to home for %s', (algorithm) => {
             render(
-                <MemoryRouter initialEntries={['/lesson/invalidAlgorithm']}>
+                <MemoryRouter initialEntries={[`/lesson/${algorithm}`]}>
                     <Routes>
                         <Route path="/lesson/:algorithm" element={<LessonPage />} />
                         <Route path="/" element={<div data-testid="home-page">Home</div>} />

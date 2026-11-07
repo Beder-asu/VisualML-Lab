@@ -28,6 +28,7 @@ export function TreeParameterControls({
 }: TreeParameterControlsProps) {
     const [localParams, setLocalParams] = useState<TreeParams>(params);
     const debounceTimerRef = useRef<number | null>(null);
+    const pendingParamsRef = useRef<Partial<TreeParams>>({});
 
     // Update local params when props change
     useEffect(() => {
@@ -39,9 +40,10 @@ export function TreeParameterControls({
      * Pauses building before updating params (Requirements 2.5)
      */
     const handleParamChange = useCallback(
-        (key: keyof TreeParams, value: number | string) => {
+        <K extends keyof TreeParams>(key: K, value: TreeParams[K]) => {
             // Update local state immediately for responsive UI
             setLocalParams((prev) => ({ ...prev, [key]: value }));
+            pendingParamsRef.current = { ...pendingParamsRef.current, [key]: value };
 
             // Clear existing timer
             if (debounceTimerRef.current !== null) {
@@ -50,13 +52,16 @@ export function TreeParameterControls({
 
             // Debounce the actual param update
             debounceTimerRef.current = window.setTimeout(() => {
+                const pendingParams = pendingParamsRef.current;
+                pendingParamsRef.current = {};
+                debounceTimerRef.current = null;
                 // Pause if building (Requirements 2.5)
                 if (isBuilding) {
                     onPause();
                 }
 
                 // Trigger param update and reset
-                onParamsChange({ [key]: value });
+                onParamsChange(pendingParams);
             }, 100);
         },
         [isBuilding, onParamsChange, onPause]
