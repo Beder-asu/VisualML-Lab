@@ -107,7 +107,7 @@ The November 6 functional-review fixes and their retained regression checks are 
 - The project teaches four algorithms; the staged ensemble implementations are not yet integrated.
 - Visualizations use small, embedded 2D datasets for clarity, not large-scale model training.
 - The Decision Tree controller still computes on the main thread, unlike the worker-backed gradient lessons.
-- The browser suite currently covers one critical Decision Tree path; it is a smoke test rather than exhaustive end-to-end coverage.
+- The browser suite covers core training and usability regressions in Chromium, Firefox, and WebKit. Physical-device and screen-reader checks are separate.
 - KaTeX requires a major-version upgrade to clear the remaining low-severity dependency advisories; that upgrade should be tested rather than forced.
 
 ## Technology
