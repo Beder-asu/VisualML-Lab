@@ -244,10 +244,15 @@ const LossCurve: React.FC<LossCurveProps> = ({
 
     return (
         <div
-            className="loss-curve-container"
+            className="loss-curve-container relative"
             role="img"
             aria-label={getLossCurveDescription}
         >
+            {lossHistory.length === 0 && (
+                <p className="pointer-events-none absolute inset-0 grid place-items-center px-4 text-center text-sm text-gray-600">
+                    Run a step to see loss
+                </p>
+            )}
             <svg
                 ref={svgRef}
                 width={width}

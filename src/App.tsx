@@ -7,16 +7,19 @@ const DataVizCheatSheetPage = React.lazy(() => import('./pages/DataVizCheatSheet
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { ScrollToTop } from './components/ScrollToTop'
-import { TutorialProvider } from './contexts/TutorialContext'
+import { LessonProgressProvider } from './contexts/LessonProgress'
 
 const App: React.FC = () => {
     return (
         <Router>
-            <TutorialProvider>
+            <LessonProgressProvider>
                 <ScrollToTop />
                 <div className="min-h-screen bg-gray-50 flex flex-col">
+                    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-white focus:p-3 focus:text-indigo-700">
+                        Skip to main content
+                    </a>
                     <Header />
-                    <main className="flex-1 w-full relative z-0">
+                    <main id="main-content" tabIndex={-1} className="flex-1 w-full relative z-0 scroll-mt-20">
                         <Suspense fallback={
                             <div className="flex items-center justify-center min-h-[60vh]">
                                 <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -31,7 +34,7 @@ const App: React.FC = () => {
                     </main>
                     <Footer />
                 </div>
-            </TutorialProvider>
+            </LessonProgressProvider>
         </Router>
     )
 }
