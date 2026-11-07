@@ -103,6 +103,10 @@ export default function DatasetExplorerPage() {
                         : 'Choose a file or try the sample to begin.'}
                 </div>
                 {error && <p role="alert" className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-900">{error}</p>}
+                {numeric.length > 0 && <a href="#dataset-plot"
+                    className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-indigo-800 underline">
+                    Jump to plot
+                </a>}
             </section>
             {dataset && (
                 <>
@@ -138,7 +142,8 @@ export default function DatasetExplorerPage() {
                             <button type="button" onClick={() => setPage(page + 1)} disabled={page === pageCount - 1} className="min-h-11 rounded-md border border-gray-300 px-3 disabled:opacity-50">Next</button>
                         </div>}
                     </section>
-                    <section aria-labelledby="plot-heading" className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+                    <section id="dataset-plot" tabIndex={-1} aria-labelledby="plot-heading"
+                        className="scroll-mt-20 rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
                         <h2 id="plot-heading" className="mb-3 text-lg font-semibold">Plot columns</h2>
                         {numeric.length === 0 ? (
                             <p className="text-sm text-gray-700">This file has no numeric columns. A histogram needs one numeric column and a scatter plot needs two.</p>

@@ -55,10 +55,10 @@ function Plot({ width, values, points, scatter }: { width: number; values: numbe
         if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#4338ca';
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = 0.8;
         for (const point of points) {
             ctx.beginPath();
-            ctx.arc(pixelX(x.position(point.x)), pixelY(y.position(point.y)), 2.5, 0, Math.PI * 2);
+            ctx.arc(pixelX(x.position(point.x)), pixelY(y.position(point.y)), 3, 0, Math.PI * 2);
             ctx.fill();
         }
     });

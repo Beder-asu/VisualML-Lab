@@ -15,6 +15,8 @@ test('imports local CSV through the worker, plots original columns, and keeps a 
     await upload(page, 'private.csv', 'distance,time,label\n1000,4,"A,B"\n2000,,C\n3000,7,D');
     await expect(page.getByRole('status')).toContainText('private.csv · 3 rows · 3 columns');
     await expect(page.getByRole('cell', { name: 'A,B', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Jump to plot' }).click();
+    await expect(page.getByRole('region', { name: 'Plot columns' })).toBeFocused();
     await expect(page.getByText('2 of 3 rows plotted. 1 excluded for missing values.')).toBeVisible();
     await expect(page.getByText('X axis: distance. Y axis: time.')).toBeVisible();
     await expect(page.getByText('3,000', { exact: true })).toBeVisible();
