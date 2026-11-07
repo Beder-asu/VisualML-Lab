@@ -13,6 +13,20 @@ export interface UseVisualizationResult {
 const emptyGeometry = () => ({ boundaryPoints: [], marginPosPoints: [], marginNegPoints: [] });
 type Geometry = Omit<UseVisualizationResult, 'isAnimating'>;
 
+function alignSegment(from: BoundaryPoint[], to: BoundaryPoint[]): BoundaryPoint[] {
+    if (from.length !== to.length || from.length < 2) return from;
+    const first = from[0];
+    const last = from[from.length - 1];
+    const targetFirst = to[0];
+    const targetLast = to[to.length - 1];
+    const distanceSquared = (a: BoundaryPoint, b: BoundaryPoint) =>
+        (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    return distanceSquared(first, targetFirst) + distanceSquared(last, targetLast) <=
+        distanceSquared(last, targetFirst) + distanceSquared(first, targetLast)
+        ? from
+        : [...from].reverse();
+}
+
 /** Interpolate from the displayed geometry when a newer training result arrives. */
 export function useVisualization(state: State | null): UseVisualizationResult {
     const [geometry, setGeometry] = useState<Geometry>(emptyGeometry);
@@ -41,7 +55,12 @@ export function useVisualization(state: State | null): UseVisualizationResult {
                 marginPosPoints: result.marginPos ?? [],
                 marginNegPoints: result.marginNeg ?? [],
             };
-            const start = displayedRef.current;
+            const current = displayedRef.current;
+            const start = {
+                boundaryPoints: alignSegment(current.boundaryPoints, target.boundaryPoints),
+                marginPosPoints: alignSegment(current.marginPosPoints, target.marginPosPoints),
+                marginNegPoints: alignSegment(current.marginNegPoints, target.marginNegPoints),
+            };
             const startTime = performance.now();
             const interpolate = (from: BoundaryPoint[], to: BoundaryPoint[], progress: number) =>
                 to.map((point, i) => ({

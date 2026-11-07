@@ -23,6 +23,16 @@ const tick = (time: number) => act(() => {
 const base = () => ({ ...initState('linearRegression', loadDataset('linear'), { lr: 0.1, nIter: 100 }), weights: [1] });
 
 describe('boundary transition lifecycle', () => {
+    it('preserves the segment span when rotating through a vertical boundary', () => {
+        const state: State = { ...base(), algorithm: 'logisticRegression', weights: [1, 0.01], bias: -0.5 };
+        const { result, rerender } = renderHook(({ state }) => useVisualization(state), { initialProps: { state } });
+        tick(200);
+        rerender({ state: { ...state, weights: [1, -0.01] } });
+        tick(300);
+        const ys = result.current.boundaryPoints.map(point => point.y);
+        expect(Math.min(...ys)).toBeCloseTo(0);
+        expect(Math.max(...ys)).toBeCloseTo(1);
+    });
     it('continues from the displayed position when the next result interrupts animation', () => {
         const state = base();
         const { result, rerender } = renderHook(({ state }) => useVisualization(state), { initialProps: { state } });
