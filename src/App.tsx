@@ -1,9 +1,10 @@
 import React, { Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 
 const LessonPage = React.lazy(() => import('./pages/LessonPage'))
 const DataVizCheatSheetPage = React.lazy(() => import('./pages/DataVizCheatSheetPage'))
+const DatasetExplorerPage = React.lazy(() => import('./pages/DatasetExplorerPage'))
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { ScrollToTop } from './components/ScrollToTop'
@@ -23,8 +24,16 @@ const App: React.FC = () => {
                             </div>
                         }>
                             <Routes>
-                                <Route path="/" element={<HomePage />} />
+                                <Route path="/" element={<>
+                                    <HomePage />
+                                    <section aria-labelledby="explore-data-heading" className="mx-auto max-w-6xl px-5 pb-10 sm:px-8">
+                                        <h2 id="explore-data-heading" className="text-xl font-semibold">Explore your own data</h2>
+                                        <p className="mt-1 text-sm text-gray-700">Preview a CSV and plot its numeric columns.</p>
+                                        <Link to="/dataset-explorer" className="mt-2 inline-flex min-h-11 items-center font-semibold text-indigo-800 underline">Open Dataset Explorer</Link>
+                                    </section>
+                                </>} />
                                 <Route path="/eda-cheatsheet" element={<DataVizCheatSheetPage />} />
+                                <Route path="/dataset-explorer" element={<DatasetExplorerPage />} />
                                 <Route path="/lesson/:algorithm" element={<LessonPage />} />
                             </Routes>
                         </Suspense>
