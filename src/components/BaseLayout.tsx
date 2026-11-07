@@ -118,7 +118,7 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
                     {/* Can be hidden with showConceptPanel={false} */}
                     {showConceptPanel && (
                         <aside
-                            className={gridLayout === 'default' ? 'lg:col-span-1' : ''}
+                            className={gridLayout === 'default' ? 'min-w-0 lg:col-span-1' : 'min-w-0'}
                             aria-label="Lesson concept and explanation"
                             role="complementary"
                         >
@@ -129,7 +129,7 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
                     {/* Main content area with controls and visualization (Requirements 1.2, 1.3, 10.1, 10.2) */}
                     {/* This is where algorithm-specific content is rendered via slots */}
                     <main
-                        className={`space-y-6 ${gridLayout === 'default' && showConceptPanel ? 'lg:col-span-2' : ''
+                        className={`min-w-0 space-y-6 ${gridLayout === 'default' && showConceptPanel ? 'lg:col-span-2' : ''
                             }`}
                         aria-label="Interactive visualization and controls"
                         role="main"

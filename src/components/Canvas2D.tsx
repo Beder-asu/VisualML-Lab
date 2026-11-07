@@ -38,6 +38,7 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
     const backgroundCanvasRef = useRef<HTMLCanvasElement>(null);
     const animationFrameRef = useRef<number | undefined>(undefined);
     const mouseMoveFrameRef = useRef<number | null>(null);
+    const verticalLabel = state?.algorithm === 'linearRegression' ? 'Target' : 'Feature 2';
 
     // Tooltip state
     const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null);
@@ -99,8 +100,8 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
             drawGrid(config);
         }
 
-        drawAxes(config);
-    }, [width, height, showGrid, xScale, yScale, margin]);
+        drawAxes(config, verticalLabel);
+    }, [width, height, showGrid, xScale, yScale, margin, verticalLabel]);
 
     // Draw dynamic layers (data points + boundary)
     // Uses requestAnimationFrame for smooth 30+ FPS rendering
@@ -202,8 +203,9 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
             if (!canvas) return;
 
             const rect = canvas.getBoundingClientRect();
-            const mouseX = clientX - rect.left;
-            const mouseY = clientY - rect.top;
+            if (rect.width === 0 || rect.height === 0) return;
+            const mouseX = (clientX - rect.left) * canvas.width / rect.width;
+            const mouseY = (clientY - rect.top) * canvas.height / rect.height;
 
             let closestDist = Infinity;
             let closestIdx = -1;
@@ -242,9 +244,22 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
         });
     }, [state, xScale, yScale]);
 
-    const handleMouseLeave = useCallback(() => {
-        setHoveredPoint(null);
+    const cancelHoverFrame = useCallback(() => {
+        if (mouseMoveFrameRef.current !== null) {
+            cancelAnimationFrame(mouseMoveFrameRef.current);
+            mouseMoveFrameRef.current = null;
+        }
     }, []);
+
+    useEffect(() => {
+        setHoveredPoint(null);
+        return cancelHoverFrame;
+    }, [width, height, state?.dataset?.name, cancelHoverFrame]);
+
+    const handleMouseLeave = useCallback(() => {
+        cancelHoverFrame();
+        setHoveredPoint(null);
+    }, [cancelHoverFrame]);
 
     // Generate accessible description for canvas visualization
     const visualizationDescription = useMemo(() => {
@@ -302,7 +317,7 @@ const Canvas2D: React.FC<Canvas2DProps> = ({
 
             {/* Plotly-style Floating Tooltip */}
             {hoveredPoint && (
-                <PointTooltip algorithm={state.algorithm} point={hoveredPoint} />
+                <PointTooltip algorithm={state.algorithm} point={hoveredPoint} plotWidth={width} />
             )}
 
             {/* Screen reader only text description */}

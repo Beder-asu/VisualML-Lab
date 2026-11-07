@@ -12,6 +12,7 @@ import { PlaybackControls } from './PlaybackControls';
 import { StatusIndicator } from './StatusIndicator';
 import SigmoidCurve from './SigmoidCurve';
 import { useState } from 'react';
+import { useElementSize } from '../hooks/useElementSize';
 
 interface VisualizationPanelProps {
     // Training state
@@ -48,6 +49,8 @@ export function VisualizationPanel({
     onSpeedChange,
 }: VisualizationPanelProps) {
     const [logRegView, setLogRegView] = useState<'scatter' | 'heatmap' | 'sigmoid'>('scatter');
+    const [modelRef, { width: modelWidth }] = useElementSize();
+    const [lossRef, { width: lossWidth }] = useElementSize();
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
@@ -77,16 +80,17 @@ export function VisualizationPanel({
             </div>
 
             {/* Main visualization area with Canvas and Loss Curve side by side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-6">
                 {/* Canvas visualization OR Sigmoid Curve */}
-                <div className="flex flex-col items-center relative w-full h-full">
-                    <div className="flex w-full justify-between items-center mb-3 px-2">
+                <div className="flex min-w-0 flex-col items-center relative w-full h-full">
+                    <div className="flex flex-wrap gap-2 w-full justify-between items-center mb-3 px-2">
                         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                             {engineState?.algorithm === 'logisticRegression' && logRegView === 'sigmoid' ? 'Sigmoid Concept Curve' : 'Data Visualization'}
                         </h3>
                         {engineState?.algorithm === 'logisticRegression' && (
                             <select
-                                className="text-sm border border-gray-300 rounded px-2 py-1 bg-gray-50 text-gray-700"
+                                aria-label="Visualization view"
+                                className="min-w-0 max-w-full text-sm border border-gray-300 rounded px-2 py-1 bg-gray-50 text-gray-700"
                                 value={logRegView}
                                 onChange={(e) => setLogRegView(e.target.value as any)}
                             >
@@ -96,30 +100,36 @@ export function VisualizationPanel({
                             </select>
                         )}
                     </div>
-                    {engineState?.algorithm === 'logisticRegression' && logRegView === 'sigmoid' ? (
-                        <SigmoidCurve state={engineState} width={400} height={400} />
-                    ) : (
-                        <Canvas2D
-                            state={engineState}
-                            width={400}
-                            height={400}
-                            showGrid={true}
-                            viewMode={logRegView === 'heatmap' ? 'heatmap' : 'scatter'}
-                        />
-                    )}
+                    <div ref={modelRef} className="w-full max-w-[400px] min-h-[240px]">
+                        {modelWidth > 0 && (engineState?.algorithm === 'logisticRegression' && logRegView === 'sigmoid' ? (
+                            <SigmoidCurve state={engineState} width={modelWidth} height={Math.max(240, modelWidth)} />
+                        ) : (
+                            <Canvas2D
+                                state={engineState}
+                                width={modelWidth}
+                                height={Math.max(240, modelWidth)}
+                                showGrid={true}
+                                viewMode={logRegView === 'heatmap' ? 'heatmap' : 'scatter'}
+                            />
+                        ))}
+                    </div>
                 </div>
 
                 {/* Loss curve */}
-                <div className="flex flex-col items-center">
+                <div className="flex min-w-0 flex-col items-center">
                     <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
                         Loss Over Time
                     </h3>
-                    <LossCurve
-                        lossHistory={lossHistory}
-                        startIteration={Math.max(1, iteration - lossHistory.length + 1)}
-                        width={400}
-                        height={400}
-                    />
+                    <div ref={lossRef} className="w-full max-w-[400px] min-h-[240px]">
+                        {lossWidth > 0 && (
+                            <LossCurve
+                                lossHistory={lossHistory}
+                                startIteration={Math.max(1, iteration - lossHistory.length + 1)}
+                                width={lossWidth}
+                                height={Math.max(240, lossWidth)}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
