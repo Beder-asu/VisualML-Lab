@@ -7,6 +7,7 @@
  */
 
 import React, { Suspense, lazy } from 'react';
+import { isLessonId } from '../data/lessons';
 import { useParams, Navigate } from 'react-router-dom';
 import { LayoutErrorBoundary } from '../components/LayoutErrorBoundary';
 
@@ -74,7 +75,7 @@ const LessonPage: React.FC = () => {
 
     // Validate algorithm exists in layout map (Requirements: 3.1, 3.3)
     // If invalid, redirect to home page (silent redirect, no error toast)
-    if (!algorithm || !Object.prototype.hasOwnProperty.call(layoutMap, algorithm)) {
+    if (!isLessonId(algorithm)) {
         return <Navigate to="/" replace />;
     }
 

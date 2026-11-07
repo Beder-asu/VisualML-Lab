@@ -6,12 +6,14 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 8.1, 8.2, 8.3, 8.4, 8.5, 10.1, 10.2, 10.3, 10.4, 10.5
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ConceptPanel } from './ConceptPanel';
 import { CodePanel } from './CodePanel';
 import { HelpModal } from './HelpModal';
 import { Toast } from './Toast';
 import { useLayoutKeyboardShortcuts, KeyboardHandlers } from '../hooks/useLayoutHooks';
+import { isLessonId, lessonTitles } from '../data/lessons';
+import { useLessonProgress } from '../contexts/LessonProgress';
 
 /**
  * Grid layout options for the base layout
@@ -26,6 +28,7 @@ export interface BaseLayoutProps {
     algorithm: string;
     controlsSlot: React.ReactNode;
     visualizationSlot: React.ReactNode;
+    guideSlot?: React.ReactNode;
 
     // Optional overrides
     showConceptPanel?: boolean;
@@ -65,6 +68,7 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
     algorithm,
     controlsSlot,
     visualizationSlot,
+    guideSlot,
     showConceptPanel = true,
     showCodePanel = true,
     customFooter,
@@ -78,6 +82,13 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
     onToggleHelp,
     keyboardHandlers = {},
 }) => {
+    const tracker = useLessonProgress();
+    const lessonId = isLessonId(algorithm) ? algorithm : null;
+    const visit = tracker?.visit;
+    useEffect(() => {
+        if (lessonId) visit?.(lessonId);
+    }, [lessonId, visit]);
+    const complete = lessonId && tracker?.progress.lessons[lessonId] === 'complete';
     // Integrate keyboard shortcuts (Requirements 1.4, 5.1)
     // This hook wraps useKeyboardShortcuts and provides no-op defaults for undefined handlers
     useLayoutKeyboardShortcuts(keyboardHandlers, !helpModalOpen);
@@ -106,55 +117,36 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
     };
 
     const gridClasses = getGridClasses();
+    const hasSidebar = Boolean(controlsSlot) || showConceptPanel;
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
             <div className="max-w-[1800px] mx-auto">
-                {/* Main grid layout (Requirements 8.1, 8.2, 8.3, 8.4, 8.5) */}
-                {/* Responsive: stacked on mobile (< 768px), grid on desktop (≥ 768px) */}
-                <div className={`${gridClasses} mb-6`}>
-                    {/* Concept panel (Requirements 1.1, 10.1, 10.2) */}
-                    {/* Shows algorithm explanation and theory */}
-                    {/* Can be hidden with showConceptPanel={false} */}
-                    {showConceptPanel && (
-                        <aside
-                            className={gridLayout === 'default' ? 'min-w-0 lg:col-span-1' : 'min-w-0'}
-                            aria-label="Lesson concept and explanation"
-                            role="complementary"
-                        >
-                            <ConceptPanel algorithm={algorithm} />
-                        </aside>
-                    )}
-
-                    {/* Main content area with controls and visualization (Requirements 1.2, 1.3, 10.1, 10.2) */}
-                    {/* This is where algorithm-specific content is rendered via slots */}
-                    <main
-                        className={`min-w-0 space-y-6 ${gridLayout === 'default' && showConceptPanel ? 'lg:col-span-2' : ''
-                            }`}
-                        aria-label="Interactive visualization and controls"
-                        role="main"
-                    >
-                        {/* Controls slot (Requirements 1.2, 1.3) */}
-                        {/* Algorithm-specific parameter controls go here */}
-                        {controlsSlot && (
-                            <div
-                                id="controls-area"
-                                aria-label="Algorithm controls"
-                                role="region"
-                            >
-                                {controlsSlot}
-                            </div>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                    <h1 className="text-2xl font-bold text-gray-900">{lessonId ? lessonTitles[lessonId] : 'Machine Learning Lesson'}</h1>
+                    <div className="flex flex-wrap items-center gap-x-2">
+                        {lessonId && tracker && (
+                            <button type="button" onClick={() => tracker.setComplete(lessonId, !complete)}
+                                className="min-h-11 rounded-md px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
+                                {complete ? 'Undo completion' : 'Mark lesson complete'}
+                            </button>
                         )}
-
-                        {/* Visualization slot (Requirements 1.2, 1.3) */}
-                        {/* Algorithm-specific visualizations go here */}
-                        {/* aria-live="polite" announces changes to screen readers */}
+                        {onToggleHelp && <button type="button" onClick={onToggleHelp}
+                            className="min-h-11 rounded-md px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50">Help</button>}
+                    </div>
+                </div>
+                {tracker?.persistent === false && <p role="status" className="mb-3 text-sm text-gray-700">Progress is available for this session. It will be lost when you reload.</p>}
+                {guideSlot}
+                <div className={`${gridClasses} mb-6`}>
+                    <section
+                        className={`min-w-0 space-y-6 ${gridLayout === 'default' ? (hasSidebar ? 'lg:col-span-2' : 'lg:col-span-3') : ''}`}
+                        aria-label="Interactive visualization and controls"
+                    >
                         {visualizationSlot && (
                             <div
                                 id="visualization-area"
                                 aria-label="Algorithm visualization"
                                 role="region"
-                                aria-live="polite"
                             >
                                 {visualizationSlot}
                             </div>
@@ -167,7 +159,15 @@ export const BaseLayout: React.FC<BaseLayoutProps> = React.memo(({
                                 Visualization not available
                             </div>
                         )}
-                    </main>
+                    </section>
+                    {hasSidebar && <div className="min-w-0 space-y-6">
+                        {controlsSlot && <section id="controls-area" aria-label="Algorithm controls">{controlsSlot}</section>}
+                        {showConceptPanel && (
+                            <aside aria-label="Lesson concept and explanation">
+                                <ConceptPanel algorithm={algorithm} />
+                            </aside>
+                        )}
+                    </div>}
                 </div>
 
                 {/* Code panel or custom footer (Requirements 1.1, 4.2, 4.3, 10.1, 10.2) */}

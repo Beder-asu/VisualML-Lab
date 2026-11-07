@@ -95,12 +95,12 @@ describe('StatusIndicator', () => {
             />
         );
 
-        expect(screen.getByText('Complete')).toBeInTheDocument();
+        expect(screen.getByText('Training complete')).toBeInTheDocument();
     });
 
     // Test ARIA attributes for accessibility
-    it('has proper ARIA role and live region', () => {
-        const { container } = render(
+    it('announces paused status but suppresses rapid updates during playback', () => {
+        const { container, rerender } = render(
             <StatusIndicator
                 isPlaying={true}
                 isPaused={false}
@@ -111,6 +111,8 @@ describe('StatusIndicator', () => {
 
         const statusElement = container.querySelector('[role="status"]');
         expect(statusElement).toBeInTheDocument();
+        expect(statusElement).toHaveAttribute('aria-live', 'off');
+        rerender(<StatusIndicator isPlaying={false} isConverged={false} iteration={10} />);
         expect(statusElement).toHaveAttribute('aria-live', 'polite');
     });
 

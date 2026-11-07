@@ -412,19 +412,19 @@ describe('BaseLayout', () => {
             expect(visualizationArea).toBeInTheDocument();
         });
 
-        it('should have ARIA live region on visualization area', () => {
+        it('leaves announcements to training status instead of the entire visualization', () => {
             render(<BaseLayout {...defaultProps} />);
 
             const visualizationArea = screen.getByLabelText(/algorithm visualization/i);
-            expect(visualizationArea).toHaveAttribute('aria-live', 'polite');
+            expect(visualizationArea).not.toHaveAttribute('aria-live');
         });
 
         it('should have proper role attributes', () => {
             render(<BaseLayout {...defaultProps} />);
 
             expect(screen.getByRole('complementary')).toBeInTheDocument(); // concept panel
-            expect(screen.getByRole('main')).toBeInTheDocument(); // main content
-            expect(screen.getAllByRole('region')).toHaveLength(3); // controls, visualization, code panel
+            expect(screen.getByRole('region', { name: 'Interactive visualization and controls' })).toBeInTheDocument();
+            expect(screen.queryByRole('main')).not.toBeInTheDocument();
         });
     });
 
@@ -437,13 +437,14 @@ describe('BaseLayout', () => {
             expect(gridElement).toBeInTheDocument();
         });
 
-        it('should adjust concept panel span based on visibility', () => {
+        it('places concept reference after the visualization in reading order', () => {
             const { container, rerender } = render(
                 <BaseLayout {...defaultProps} showConceptPanel={true} />
             );
 
             let conceptPanel = container.querySelector('aside');
-            expect(conceptPanel?.className).toContain('lg:col-span-1');
+            expect(screen.getByLabelText('Algorithm visualization').compareDocumentPosition(conceptPanel!))
+                .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
             rerender(<BaseLayout {...defaultProps} showConceptPanel={false} />);
 
@@ -451,18 +452,18 @@ describe('BaseLayout', () => {
             expect(conceptPanel).not.toBeInTheDocument();
         });
 
-        it('should adjust main content span based on concept panel visibility', () => {
+        it('keeps the visualization wide when the sidebar contains only parameters', () => {
             const { container, rerender } = render(
                 <BaseLayout {...defaultProps} showConceptPanel={true} />
             );
 
-            let mainContent = container.querySelector('main');
+            let mainContent = container.querySelector('section[aria-label="Interactive visualization and controls"]');
             expect(mainContent?.className).toContain('lg:col-span-2');
 
             rerender(<BaseLayout {...defaultProps} showConceptPanel={false} />);
 
-            mainContent = container.querySelector('main');
-            expect(mainContent?.className).not.toContain('lg:col-span-2');
+            mainContent = container.querySelector('section[aria-label="Interactive visualization and controls"]');
+            expect(mainContent?.className).toContain('lg:col-span-2');
         });
     });
 });

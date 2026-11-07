@@ -40,7 +40,7 @@ export function StatusIndicator({
     if (isConverged) {
         // Requirements 9.3, 12.4: Display "Converged" or "Complete" message with success indicator
         // Reaching a configured limit establishes completion, not convergence.
-        const completeText = 'Complete';
+        const completeText = 'Training complete';
         statusText = completeText;
         statusColor = 'text-green-600 bg-green-50 border-green-200';
         Icon = CheckCircle;
@@ -71,7 +71,7 @@ export function StatusIndicator({
         <div
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${statusColor} transition-colors duration-100`}
             role="status"
-            aria-live="polite"
+            aria-live={isPlaying ? 'off' : 'polite'}
             aria-atomic="true"
             aria-label={ariaLabel}
         >

@@ -13,6 +13,7 @@ import { getDefaultDataset } from '../../utils/layoutUtils';
 import { ParameterControls } from '../../components/ParameterControls';
 import { VisualizationPanel } from '../../components/VisualizationPanel';
 import { BaseLayout } from '../../components/BaseLayout';
+import { LessonGuide } from '../../components/LessonGuide';
 
 interface GradientDescentLayoutProps {
     algorithm: 'linearRegression' | 'logisticRegression' | 'svm';
@@ -174,6 +175,9 @@ export const GradientDescentLayout: React.FC<GradientDescentLayoutProps> = ({ al
     // BaseLayout provides the shared shell (concept panel, code panel, etc.)
     return (
         <BaseLayout
+            guideSlot={algorithm === 'linearRegression' && <LessonGuide
+                iteration={currentIteration} loss={trainingState.engineState?.loss ?? null} learningRate={params.lr}
+            />}
             algorithm={algorithm}
             controlsSlot={controlsSlot}
             visualizationSlot={visualizationSlot}

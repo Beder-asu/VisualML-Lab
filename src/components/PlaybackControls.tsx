@@ -93,22 +93,24 @@ export function PlaybackControls({
             <button
                 onClick={onPlay}
                 disabled={isPlaying || isConverged}
-                className="flex items-center justify-center w-10 h-10 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="flex min-h-11 items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 aria-label="Play training (Spacebar)"
                 title="Play (Space)"
             >
                 <Play className="w-5 h-5" aria-hidden="true" />
+                Play
             </button>
 
             {/* Pause Button - Requirements 1.2 */}
             <button
                 onClick={onPause}
                 disabled={!isPlaying}
-                className="flex items-center justify-center w-10 h-10 rounded-md bg-gray-600 text-white hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                className="flex min-h-11 items-center justify-center gap-1.5 rounded-md bg-gray-700 px-3 text-sm font-medium text-white hover:bg-gray-800 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 aria-label="Pause training (Spacebar)"
                 title="Pause (Space)"
             >
                 <Pause className="w-5 h-5" aria-hidden="true" />
+                Pause
             </button>
 
             {/* Step Button - Requirements 1.3 */}
@@ -121,21 +123,23 @@ export function PlaybackControls({
                 onTouchEnd={stopFastForward}
                 onContextMenu={(e) => e.preventDefault()}
                 disabled={isPlaying || isConverged}
-                className="flex items-center justify-center w-10 h-10 rounded-md bg-teal-600 text-white hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 select-none"
+                className="flex min-h-11 items-center justify-center gap-1.5 rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 select-none"
                 aria-label="Step once (Right Arrow)"
                 title="Step / Fast-Forward (Right Arrow)"
             >
                 <SkipForward className="w-5 h-5" aria-hidden="true" />
+                Step
             </button>
 
             {/* Reset Button - Requirements 1.4 */}
             <button
                 onClick={onReset}
-                className="flex items-center justify-center w-10 h-10 rounded-md bg-orange-600 text-white hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+                className="flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-800 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 aria-label="Reset training (R key)"
                 title="Reset (R)"
             >
                 <RotateCcw className="w-5 h-5" aria-hidden="true" />
+                Reset
             </button>
 
             {/* Speed Slider — continuous log scale 16ms–500ms with steps/sec readout */}

@@ -72,8 +72,7 @@ describe('LessonPage Integration Tests', () => {
         it('should render all major components', () => {
             renderLessonPage();
 
-            // Concept panel - use heading role to be more specific
-            expect(screen.getByRole('heading', { name: /Linear Regression/i, level: 2 })).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: /Linear Regression/i, level: 1 })).toBeInTheDocument();
             expect(screen.getByText(/Description/i)).toBeInTheDocument();
 
             // Parameter controls
@@ -95,7 +94,7 @@ describe('LessonPage Integration Tests', () => {
         it('should render concept panel with correct algorithm content', () => {
             renderLessonPage();
 
-            expect(screen.getByRole('heading', { name: /Linear Regression/i, level: 2 })).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: /Linear Regression/i, level: 1 })).toBeInTheDocument();
             expect(screen.getByText(/gradient descent/i)).toBeInTheDocument();
             expect(screen.getByText(/How it works/i)).toBeInTheDocument();
         });
