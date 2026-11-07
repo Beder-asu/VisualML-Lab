@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { State } from '../types/engine';
 import { getDecisionBoundary } from '../../engine/boundary';
+import { useReducedMotion } from './useReducedMotion';
 
 export interface BoundaryPoint { x: number; y: number; }
 export interface UseVisualizationResult {
@@ -32,6 +33,7 @@ export function useVisualization(state: State | null): UseVisualizationResult {
     const [geometry, setGeometry] = useState<Geometry>(emptyGeometry);
     const [isAnimating, setIsAnimating] = useState(false);
     const displayedRef = useRef<Geometry>(emptyGeometry());
+    const reduceMotion = useReducedMotion();
     // Loss/iteration updates alone do not alter geometry or interrupt a transition.
     const algorithm = state?.algorithm;
     const bias = state?.bias;
@@ -55,6 +57,11 @@ export function useVisualization(state: State | null): UseVisualizationResult {
                 marginPosPoints: result.marginPos ?? [],
                 marginNegPoints: result.marginNeg ?? [],
             };
+            if (reduceMotion) {
+                display(target);
+                setIsAnimating(false);
+                return;
+            }
             const current = displayedRef.current;
             const start = {
                 boundaryPoints: alignSegment(current.boundaryPoints, target.boundaryPoints),
@@ -86,7 +93,7 @@ export function useVisualization(state: State | null): UseVisualizationResult {
             setIsAnimating(false);
         }
         return () => { if (frame !== undefined) cancelAnimationFrame(frame); };
-    }, [algorithm, bias, weightsKey]);
+    }, [algorithm, bias, weightsKey, reduceMotion]);
 
     return { ...geometry, isAnimating };
 }

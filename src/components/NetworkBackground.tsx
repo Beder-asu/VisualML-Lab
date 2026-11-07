@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 export function NetworkBackground() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const reduceMotion = useReducedMotion();
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -9,27 +11,19 @@ export function NetworkBackground() {
         const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) return;
 
-        let animationFrameId: number;
+        let animationFrameId: number | undefined;
         let width = window.innerWidth;
         let height = window.innerHeight;
 
         canvas.width = width;
         canvas.height = height;
 
-        const handleResize = () => {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-        };
-        window.addEventListener('resize', handleResize);
-
         const mouse = { x: -1000, y: -1000 };
         const handleMouseMove = (e: MouseEvent) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
         };
-        window.addEventListener('mousemove', handleMouseMove);
+        if (!reduceMotion) window.addEventListener('mousemove', handleMouseMove);
 
         const interactionRadius = 180; // How far the mouse "activates" the network
 
@@ -96,12 +90,12 @@ export function NetworkBackground() {
         const particleCount = Math.floor((width * height) / 12000); 
         const particles = Array.from({ length: particleCount }, () => new Particle());
 
-        const animate = () => {
+        const drawFrame = () => {
             ctx.clearRect(0, 0, width, height);
             
             // Draw connections
             particles.forEach((p, i) => {
-                p.update();
+                if (!reduceMotion) p.update();
                 p.draw();
 
                 // Draw lines to nearby particles
@@ -143,17 +137,25 @@ export function NetworkBackground() {
                 }
             });
 
-            animationFrameId = requestAnimationFrame(animate);
+            if (!reduceMotion) animationFrameId = requestAnimationFrame(drawFrame);
         };
 
-        animate();
+        const handleResize = () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            if (reduceMotion) drawFrame();
+        };
+        window.addEventListener('resize', handleResize);
+        drawFrame();
 
         return () => {
             window.removeEventListener('resize', handleResize);
             window.removeEventListener('mousemove', handleMouseMove);
-            cancelAnimationFrame(animationFrameId);
+            if (animationFrameId !== undefined) cancelAnimationFrame(animationFrameId);
         };
-    }, []);
+    }, [reduceMotion]);
 
     return (
         <canvas 

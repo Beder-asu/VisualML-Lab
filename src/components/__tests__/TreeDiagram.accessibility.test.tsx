@@ -158,7 +158,7 @@ describe('TreeDiagram Accessibility', () => {
             );
 
             const treeContainer = screen.getByRole('tree');
-            expect(treeContainer).toHaveAttribute('tabIndex', '0');
+            expect(treeContainer).toHaveAttribute('tabindex', '0');
         });
 
         it('supports arrow key navigation', () => {
@@ -254,6 +254,25 @@ describe('TreeDiagram Accessibility', () => {
             treeItems.forEach(item => {
                 expect(item).toHaveAttribute('aria-selected');
             });
+        });
+
+        it('references the active node and returns to the root when that node is removed', () => {
+            const props = { highlightedNode: null, onNodeHover: vi.fn(), zoom: 1, pan: { x: 0, y: 0 } };
+            const { rerender } = render(<TreeDiagram {...props} treeData={createTreeState(1)} currentDepth={1} />);
+            const tree = screen.getByRole('tree');
+            const rootId = screen.getAllByRole('treeitem')[0].id;
+            expect(tree).toHaveAttribute('aria-activedescendant', rootId);
+            expect(tree.querySelector('[tabindex="0"]')).toBeNull();
+            expect(tree.contains(screen.getByRole('toolbar'))).toBe(false);
+
+            fireEvent.keyDown(tree, { key: 'End' });
+            const leafId = screen.getAllByRole('treeitem')[2].id;
+            expect(tree).toHaveAttribute('aria-activedescendant', leafId);
+            expect(document.getElementById(leafId)).toHaveAttribute('aria-selected', 'true');
+
+            rerender(<TreeDiagram {...props} treeData={createTreeState(0)} currentDepth={0} />);
+            expect(tree).toHaveAttribute('aria-activedescendant', rootId);
+            expect(document.getElementById(leafId)).toBeNull();
         });
     });
 
