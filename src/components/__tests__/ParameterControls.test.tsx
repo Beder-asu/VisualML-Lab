@@ -180,6 +180,17 @@ describe('ParameterControls', () => {
         expect(mockOnParamsChange).toHaveBeenCalledWith({ lr: 0.05 });
     });
 
+    it('commits rapid edits to different sliders together', async () => {
+        render(<ParameterControls {...defaultProps} />);
+        fireEvent.change(screen.getByRole('slider', { name: /Learning Rate/ }), { target: { value: '0.5' } });
+        fireEvent.change(screen.getByRole('slider', { name: /Max Iterations/ }), { target: { value: '200' } });
+
+        await vi.advanceTimersByTimeAsync(100);
+
+        expect(mockOnParamsChange).toHaveBeenCalledTimes(1);
+        expect(mockOnParamsChange).toHaveBeenCalledWith({ lr: 0.5, nIter: 200 });
+    });
+
     it('cleans up debounce timer on unmount', () => {
         const { unmount } = render(<ParameterControls {...defaultProps} />);
 
