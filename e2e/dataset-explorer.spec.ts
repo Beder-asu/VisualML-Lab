@@ -29,6 +29,11 @@ test('imports local CSV through the worker, plots original columns, and keeps a 
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(uploadRequests).toEqual([]);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain('private.csv');
+    const largest = Buffer.alloc(2 * 1024 * 1024, 'x');
+    largest.write('label\n');
+    await upload(page, 'limit.csv', largest);
+    await expect(page.getByRole('status')).toContainText('limit.csv · 1 row · 1 column');
+    await expect(page.getByRole('cell', { name: 'x'.repeat(160) + '…', exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('status')).toContainText('Choose a file or try the sample');
 });

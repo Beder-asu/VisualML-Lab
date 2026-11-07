@@ -4,6 +4,8 @@ import type { DatasetWorkerResponse, ImportedDataset } from '../utils/datasetCsv
 
 const sample = 'study_hours,quiz_score\n1,54\n2,62\n2.5,66\n3,64\n3.5,74\n4,76\n4.5,83\n5,85\n6,91\n7,94';
 const pageSize = 25;
+const previewValue = (value: string) => value.length > 160 ? value.slice(0, 160) + '…' : value;
+const countLabel = (count: number, label: string) => `${count} ${label}${count === 1 ? '' : 's'}`;
 type ChartKind = 'scatter' | 'histogram';
 
 export default function DatasetExplorerPage() {
@@ -78,7 +80,7 @@ export default function DatasetExplorerPage() {
                 <p className="mt-2 max-w-2xl text-gray-700">Inspect a CSV and plot relationships or distributions in your own data.</p>
             </header>
             <section aria-labelledby="import-heading" className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-                <h2 id="import-heading" className="text-lg font-semibold">Choose CSV</h2>
+                <h2 id="import-heading" className="text-lg font-semibold">Import a dataset</h2>
                 <p id="import-limits" className="mt-1 text-sm text-gray-700">UTF-8 CSV with column headers. Up to 2 MB, 10,000 data rows, and 50 columns.</p>
                 <p className="mt-1 text-sm text-gray-700">Your file stays in this browser tab. Reimport it after leaving or reloading this page.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -96,14 +98,17 @@ export default function DatasetExplorerPage() {
                     {(dataset || reading || error) && <button type="button" onClick={clear} className="min-h-11 rounded-md px-2 text-sm font-medium text-gray-700 underline">Clear dataset</button>}
                 </div>
                 <div role="status" className="mt-2 break-words text-sm text-gray-700">
-                    {reading ? 'Reading CSV…' : dataset ? `${dataset.name} · ${dataset.rows.length} rows · ${dataset.columns.length} columns` : 'Choose a file or try the sample to begin.'}
+                    {reading ? 'Reading CSV…' : dataset
+                        ? `${dataset.name} · ${countLabel(dataset.rows.length, 'row')} · ${countLabel(dataset.columns.length, 'column')}`
+                        : 'Choose a file or try the sample to begin.'}
                 </div>
                 {error && <p role="alert" className="mt-2 rounded-md bg-red-50 p-3 text-sm text-red-900">{error}</p>}
             </section>
             {dataset && (
                 <>
                     <section aria-labelledby="preview-heading" className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-                        <h2 id="preview-heading" className="mb-3 text-lg font-semibold">Data preview</h2>
+                        <h2 id="preview-heading" className="text-lg font-semibold">Data preview</h2>
+                        <p className="mb-3 mt-1 text-xs text-gray-700">Long cells are shortened to 160 characters in the preview.</p>
                         <div tabIndex={0} role="region" aria-label="Scrollable CSV preview" className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <caption className="sr-only">CSV rows. A dash indicates a blank cell.</caption>
@@ -121,7 +126,7 @@ export default function DatasetExplorerPage() {
                                     {dataset.rows.slice(page * pageSize, (page + 1) * pageSize).map((row, i) => (
                                         <tr key={page * pageSize + i} className="border-b border-gray-100">
                                             <th scope="row" className="p-2 font-normal text-gray-600">{page * pageSize + i + 1}</th>
-                                            {row.map((value, j) => <td key={j} className="max-w-48 min-w-24 break-words p-2">{value.trim() ? value : '—'}</td>)}
+                                            {row.map((value, j) => <td key={j} className="max-w-48 min-w-24 break-words p-2">{value.trim() ? previewValue(value) : '—'}</td>)}
                                         </tr>
                                     ))}
                                 </tbody>
